@@ -216,7 +216,7 @@ else:
             col1, col2 = st.columns(2)
             with col1:
                 m_id = st.text_input("Mã máy (VD: M04)*")
-                m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
+                m_name = st.text_input("Tên máy (VD: Hipot)*")
                 m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
             with col2:
                 m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
