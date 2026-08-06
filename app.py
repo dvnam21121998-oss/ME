@@ -17,6 +17,14 @@ ALL_FEATURES = [
     "👤 Quản Lý Tài Khoản"
 ]
 
+ALL_MACHINE_EDIT_FIELDS = [
+    "Tên máy",
+    "Dây chuyền (Line)",
+    "UPH chuẩn",
+    "Đường dẫn máy",
+    "File mẫu dữ liệu"
+]
+
 # ==========================================
 # HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
 # ==========================================
@@ -108,7 +116,9 @@ if "USER_DB" not in st.session_state:
             "department": "Ban Giám Đốc",
             "position": "Giám Đốc",
             "role": "Admin",
-            "allowed_pages": ALL_FEATURES
+            "allowed_pages": ALL_FEATURES,
+            "machine_perms": ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"],
+            "editable_machine_fields": ALL_MACHINE_EDIT_FIELDS
         },
         "manager": {
             "password": "123",
@@ -116,7 +126,9 @@ if "USER_DB" not in st.session_state:
             "department": "Kỹ Thuật (IE)",
             "position": "Trưởng Nhóm IE",
             "role": "Manager",
-            "allowed_pages": ["🎛️ Dashboard OEE", "🏭 Quản Lý Máy Móc"]
+            "allowed_pages": ["🎛️ Dashboard OEE", "🏭 Quản Lý Máy Móc"],
+            "machine_perms": ["Xem", "Chỉnh sửa"],
+            "editable_machine_fields": ["UPH chuẩn", "Đường dẫn máy"]
         }
     }
 
@@ -185,7 +197,6 @@ if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
     current_user = st.session_state["user_info"]
-    is_admin = current_user.get("role", "").lower() == "admin"
     
     # --- SIDEBAR MENU ---
     with st.sidebar:
@@ -402,7 +413,9 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
 
-        # TÁCH TAB CHỈNH SỬA VÀ XÓA RIÊNG BIỆT
+        user_m_perms = current_user.get("machine_perms", ["Xem"])
+        user_editable_fields = current_user.get("editable_machine_fields", [])
+
         tab_m_list, tab_m_add, tab_m_edit, tab_m_delete = st.tabs([
             "📋 Danh Sách Thiết Bị", 
             "➕ Thêm Thiết Bị Mới", 
@@ -412,112 +425,130 @@ else:
 
         # TAB 1: DANH SÁCH MÁY MÓC
         with tab_m_list:
-            if st.session_state["MACHINE_DB"]:
-                m_display = []
-                for m in st.session_state["MACHINE_DB"]:
-                    m_display.append({
-                        "Mã máy": m.get("id"),
-                        "Tên thiết bị": m.get("name"),
-                        "Dây chuyền (Line)": m.get("line"),
-                        "UPH (Cơ bản)": m.get("uph"),
-                        "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
-                        "File mẫu dữ liệu chuẩn": m.get("template_file", "Chưa nạp file mẫu")
-                    })
-                st.dataframe(pd.DataFrame(m_display), use_container_width=True)
+            if "Xem" in user_m_perms:
+                if st.session_state["MACHINE_DB"]:
+                    m_display = []
+                    for m in st.session_state["MACHINE_DB"]:
+                        m_display.append({
+                            "Mã máy": m.get("id"),
+                            "Tên thiết bị": m.get("name"),
+                            "Dây chuyền (Line)": m.get("line"),
+                            "UPH (Cơ bản)": m.get("uph"),
+                            "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
+                            "File mẫu dữ liệu chuẩn": m.get("template_file", "Chưa nạp file mẫu")
+                        })
+                    st.dataframe(pd.DataFrame(m_display), use_container_width=True)
+                else:
+                    st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
             else:
-                st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
+                st.error("🔒 Bạn không có quyền **Xem** danh sách máy móc.")
 
         # TAB 2: THÊM MÁY MÓC MỚI
         with tab_m_add:
-            st.subheader("➕ Thêm máy móc & Nạp file dữ liệu mẫu")
-            col1, col2 = st.columns(2)
-            with col1:
-                m_id = st.text_input("Mã máy (VD: M04)*")
-                m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
-                m_line = st.text_input("Dây chuyền (Line)*", placeholder="Tự nhập tên Line (VD: G103, Line-A, SMT-1...)")
-            with col2:
-                m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
-                m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04")
-                template_file = st.file_uploader("📁 Nạp File Mẫu Chuẩn (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
+            if "Thêm mới" in user_m_perms:
+                st.subheader("➕ Thêm máy móc & Nạp file dữ liệu mẫu")
+                col1, col2 = st.columns(2)
+                with col1:
+                    m_id = st.text_input("Mã máy (VD: M04)*")
+                    m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
+                    m_line = st.text_input("Dây chuyền (Line)*", placeholder="Tự nhập tên Line (VD: G103, Line-A, SMT-1...)")
+                with col2:
+                    m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
+                    m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04")
+                    template_file = st.file_uploader("📁 Nạp File Mẫu Chuẩn (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
 
-            if st.button("💾 Lưu Thiết Bị Mới", use_container_width=True, type="primary"):
-                if not m_id or not m_name or not m_line:
-                    show_popup_message("LỖI NHẬP DỮ LIỆU", "Vui lòng điền đầy đủ **Mã máy**, **Tên máy** và **Dây chuyền (Line)**!", icon="❌")
-                elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
-                    show_popup_message("TRÙNG MÃ MÁY", f"Mã máy `{m_id}` đã tồn tại trên hệ thống!", icon="⚠️")
-                else:
-                    t_filename = template_file.name if template_file else "Chưa nạp file mẫu"
-                    has_f = True if template_file else False
-                    
-                    st.session_state["MACHINE_DB"].append({
-                        "id": m_id,
-                        "name": m_name,
-                        "line": m_line.strip(),
-                        "uph": m_uph,
-                        "url": m_url if m_url else "Chưa cấu hình",
-                        "template_file": t_filename,
-                        "has_file": has_f
-                    })
-                    show_popup_message("TẠO MỚI THÀNH CÔNG", f"Đã lưu thành công thiết bị **{m_name} ({m_id})** vào Line **{m_line}**!", icon="🎉")
+                if st.button("💾 Lưu Thiết Bị Mới", use_container_width=True, type="primary"):
+                    if not m_id or not m_name or not m_line:
+                        show_popup_message("LỖI NHẬP DỮ LIỆU", "Vui lòng điền đầy đủ **Mã máy**, **Tên máy** và **Dây chuyền (Line)**!", icon="❌")
+                    elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
+                        show_popup_message("TRÙNG MÃ MÁY", f"Mã máy `{m_id}` đã tồn tại trên hệ thống!", icon="⚠️")
+                    else:
+                        t_filename = template_file.name if template_file else "Chưa nạp file mẫu"
+                        has_f = True if template_file else False
+                        
+                        st.session_state["MACHINE_DB"].append({
+                            "id": m_id,
+                            "name": m_name,
+                            "line": m_line.strip(),
+                            "uph": m_uph,
+                            "url": m_url if m_url else "Chưa cấu hình",
+                            "template_file": t_filename,
+                            "has_file": has_f
+                        })
+                        show_popup_message("TẠO MỚI THÀNH CÔNG", f"Đã lưu thành công thiết bị **{m_name} ({m_id})** vào Line **{m_line}**!", icon="🎉")
+            else:
+                st.error("🔒 Tài khoản của bạn **không có quyền Thêm mới** thiết bị!")
 
-        # TAB 3: CHỈNH SỬA MÁY MÓC (CÓ KIỂM TRA QUYỀN ADMIN)
+        # TAB 3: CHỈNH SỬA MÁY MÓC (KIỂM TRA QUYỀN VÀ TRƯỜNG CỤ THỂ)
         with tab_m_edit:
-            if st.session_state["MACHINE_DB"]:
-                if not is_admin:
-                    st.error("🔒 **Hạn chế truy cập:** Chỉ tài khoản **Admin** mới có quyền chỉnh sửa các thông tin thuộc về máy móc!")
-                
-                machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
-                selected_m_option = st.selectbox("Chọn máy cần chỉnh sửa", machine_options, key="select_edit_m")
-                selected_m_id = selected_m_option.split(" - ")[0]
-                
-                m_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id), None)
-                cur_m = st.session_state["MACHINE_DB"][m_idx]
-
-                st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
-                with st.form("form_edit_machine"):
-                    e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""), disabled=not is_admin)
-                    e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""), disabled=not is_admin)
-                    e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)), disabled=not is_admin)
-                    e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""), disabled=not is_admin)
+            if "Chỉnh sửa" in user_m_perms:
+                if st.session_state["MACHINE_DB"]:
+                    machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
+                    selected_m_option = st.selectbox("Chọn máy cần chỉnh sửa", machine_options, key="select_edit_m")
+                    selected_m_id = selected_m_option.split(" - ")[0]
                     
-                    st.info(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
-                    e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template", disabled=not is_admin)
+                    m_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id), None)
+                    cur_m = st.session_state["MACHINE_DB"][m_idx]
 
-                    btn_update_m = st.form_submit_button("💾 Cập Nhật & Lưu Thay Đổi", use_container_width=True, disabled=not is_admin)
-                    if btn_update_m:
-                        if is_admin:
-                            new_t_filename = e_template_file.name if e_template_file else cur_m.get("template_file", "Chưa có file mẫu")
-                            has_f = True if e_template_file or cur_m.get("has_file") else False
+                    st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
+                    
+                    allowed_fields_str = ", ".join(user_editable_fields) if user_editable_fields else "Không có mục nào"
+                    st.info(f"🔑 **Các mục bạn được phép chỉnh sửa:** {allowed_fields_str}")
+
+                    with st.form("form_edit_machine"):
+                        can_edit_name = "Tên máy" in user_editable_fields
+                        can_edit_line = "Dây chuyền (Line)" in user_editable_fields
+                        can_edit_uph = "UPH chuẩn" in user_editable_fields
+                        can_edit_url = "Đường dẫn máy" in user_editable_fields
+                        can_edit_file = "File mẫu dữ liệu" in user_editable_fields
+
+                        e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""), disabled=not can_edit_name)
+                        e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""), disabled=not can_edit_line)
+                        e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)), disabled=not can_edit_uph)
+                        e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""), disabled=not can_edit_url)
+                        
+                        st.write(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
+                        e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template", disabled=not can_edit_file)
+
+                        btn_update_m = st.form_submit_button("💾 Cập Nhật & Lưu Thay Đổi", use_container_width=True)
+                        if btn_update_m:
+                            new_t_filename = e_template_file.name if (e_template_file and can_edit_file) else cur_m.get("template_file", "Chưa có file mẫu")
+                            has_f = True if (e_template_file and can_edit_file) or cur_m.get("has_file") else False
 
                             st.session_state["MACHINE_DB"][m_idx] = {
                                 "id": selected_m_id,
-                                "name": e_m_name,
-                                "line": e_m_line.strip(),
-                                "uph": e_m_uph,
-                                "url": e_m_url,
+                                "name": e_m_name if can_edit_name else cur_m.get("name"),
+                                "line": e_m_line.strip() if can_edit_line else cur_m.get("line"),
+                                "uph": e_m_uph if can_edit_uph else cur_m.get("uph"),
+                                "url": e_m_url if can_edit_url else cur_m.get("url"),
                                 "template_file": new_t_filename,
                                 "has_file": has_f
                             }
                             show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho thiết bị **{selected_m_id}**!", icon="💾")
+                else:
+                    st.info("Chưa có máy nào để chỉnh sửa.")
             else:
-                st.info("Chưa có máy nào để chỉnh sửa.")
+                st.error("🔒 Tài khoản của bạn **không có quyền Chỉnh sửa** máy móc!")
 
         # TAB 4: XÓA MÁY MÓC
         with tab_m_delete:
-            if st.session_state["MACHINE_DB"]:
-                st.subheader("🗑️ Xóa thiết bị khỏi hệ thống")
-                machine_del_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
-                del_m_option = st.selectbox("Chọn máy cần xóa", machine_del_options, key="select_del_m")
-                del_m_id = del_m_option.split(" - ")[0]
-                
-                m_del_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == del_m_id), None)
-                
-                st.warning(f"⚠️ Thao tác này sẽ xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống.")
-                if st.button("🗑️ Xác Nhận Xóa Thiết Bị", type="primary", use_container_width=True):
-                    st.session_state["MACHINE_DB"].pop(m_del_idx)
-                    show_popup_message("ĐÃ XÓA THIẾT BỊ", f"Đã xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống!", icon="🗑️")
+            if "Xóa" in user_m_perms:
+                if st.session_state["MACHINE_DB"]:
+                    st.subheader("🗑️ Xóa thiết bị khỏi hệ thống")
+                    machine_del_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
+                    del_m_option = st.selectbox("Chọn máy cần xóa", machine_del_options, key="select_del_m")
+                    del_m_id = del_m_option.split(" - ")[0]
+                    
+                    m_del_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == del_m_id), None)
+                    
+                    st.warning(f"⚠️ Thao tác này sẽ xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống.")
+                    if st.button("🗑️ Xác Nhận Xóa Thiết Bị", type="primary", use_container_width=True):
+                        st.session_state["MACHINE_DB"].pop(m_del_idx)
+                        show_popup_message("ĐÃ XÓA THIẾT BỊ", f"Đã xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống!", icon="🗑️")
+                else:
+                    st.info("Chưa có máy nào để xóa.")
             else:
-                st.info("Chưa có máy nào để xóa.")
+                st.error("🔒 Tài khoản của bạn **không có quyền Xóa** thiết bị!")
 
     # ---------------------------------------------------------
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
@@ -526,7 +557,6 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
-        # TÁCH TAB CHỈNH SỬA VÀ XÓA RIÊNG BIỆT
         tab_list, tab_add, tab_edit, tab_delete = st.tabs([
             "📋 Danh Sách Tài Khoản", 
             "➕ Tạo Mới Tài Khoản", 
@@ -538,13 +568,17 @@ else:
         with tab_list:
             display_data = []
             for uname, uinfo in st.session_state["USER_DB"].items():
+                m_perms_str = ", ".join(uinfo.get("machine_perms", []))
+                edit_fields_str = ", ".join(uinfo.get("editable_machine_fields", [])) if "Chỉnh sửa" in uinfo.get("machine_perms", []) else "N/A"
+                
                 display_data.append({
                     "Tài khoản": uname,
-                    "Mật khẩu": "••••••",
                     "Họ và Tên": uinfo.get("name", ""),
                     "Bộ phận": uinfo.get("department", ""),
                     "Chức vụ": uinfo.get("position", ""),
                     "Phân quyền (Role)": uinfo.get("role", ""),
+                    "Quyên máy móc": m_perms_str,
+                    "Các mục được sửa": edit_fields_str,
                     "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
@@ -563,8 +597,15 @@ else:
                     a_pos = st.text_input("Chức vụ", value="Nhân Viên")
                     a_role = st.text_input("Phân quyền (Role)*", value="Operator", placeholder="Tự nhập quyền (VD: Admin, Manager, Operator, Viewer...)")
 
-                st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
-                a_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=["🎛️ Dashboard OEE"])
+                st.markdown("---")
+                st.markdown("**1. Quyền được truy cập trang trong phần mềm:**")
+                a_pages = st.multiselect("Chọn các trang được phép dùng", ALL_FEATURES, default=["🎛️ Dashboard OEE"])
+
+                st.markdown("**2. Thao tác chi tiết tại Tab Quản Lý Máy Móc:**")
+                a_m_perms = st.multiselect("Chọn thao tác máy móc được phép", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=["Xem"])
+
+                st.markdown("**3. Nếu có quyền Chỉnh Sửa máy móc, chọn cụ thể các mục được phép sửa:**")
+                a_edit_fields = st.multiselect("Chọn các trường thông tin máy được phép sửa", ALL_MACHINE_EDIT_FIELDS, default=["UPH chuẩn"])
 
                 btn_add = st.form_submit_button("➕ Tạo Tài Khoản Mới", use_container_width=True)
                 if btn_add:
@@ -579,7 +620,9 @@ else:
                             "department": a_dept,
                             "position": a_pos,
                             "role": a_role.strip(),
-                            "allowed_pages": a_pages
+                            "allowed_pages": a_pages,
+                            "machine_perms": a_m_perms,
+                            "editable_machine_fields": a_edit_fields
                         }
                         show_popup_message("TẠO TÀI KHOẢN THÀNH CÔNG", f"Đã khởi tạo thành công tài khoản **{a_username}**!", icon="👤")
 
@@ -596,8 +639,15 @@ else:
                 e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
                 e_role = st.text_input("Phân quyền (Role)", value=u_data.get("role", "Operator"))
 
-                st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
-                e_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
+                st.markdown("---")
+                st.markdown("**1. Quyền được truy cập trang trong phần mềm:**")
+                e_pages = st.multiselect("Chọn các trang được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
+
+                st.markdown("**2. Thao tác chi tiết tại Tab Quản Lý Máy Móc:**")
+                e_m_perms = st.multiselect("Chọn thao tác máy móc được phép", ["Xem", "Thêm mới", "Chỉnh sửa", "Xóa"], default=u_data.get("machine_perms", ["Xem"]))
+
+                st.markdown("**3. Nếu có quyền Chỉnh Sửa máy móc, chọn cụ thể các mục được phép sửa:**")
+                e_edit_fields = st.multiselect("Chọn các trường thông tin máy được phép sửa", ALL_MACHINE_EDIT_FIELDS, default=u_data.get("editable_machine_fields", []))
 
                 btn_update = st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True)
                 if btn_update:
@@ -607,7 +657,9 @@ else:
                         "department": e_dept,
                         "position": e_pos,
                         "role": e_role.strip(),
-                        "allowed_pages": e_pages
+                        "allowed_pages": e_pages,
+                        "machine_perms": e_m_perms,
+                        "editable_machine_fields": e_edit_fields
                     }
                     if target_user == st.session_state["username"]:
                         st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
