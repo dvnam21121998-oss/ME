@@ -151,11 +151,11 @@ def logout():
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    st.rerun()
+    # Streamlit tự động rerun sau khi hàm callback hoàn tất
 
 def go_home():
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    st.rerun()
+    # Streamlit tự động rerun sau khi hàm callback hoàn tất
 
 # ==========================================
 # GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
@@ -381,7 +381,7 @@ else:
             else:
                 st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
 
-        # TAB 2: THÊM MÁY MÓC MỚI (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
+        # TAB 2: THÊM MÁY MÓC MỚI
         with tab_m_add:
             st.subheader("➕ Thêm máy móc & Nạp file dữ liệu mẫu")
             col1, col2 = st.columns(2)
@@ -414,7 +414,7 @@ else:
                     })
                     show_popup_message("TẠO MỚI THÀNH CÔNG", f"Đã lưu thành công thiết bị **{m_name} ({m_id})** vào Line **{m_line}**!", icon="🎉")
 
-        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
+        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
         with tab_m_edit_del:
             if st.session_state["MACHINE_DB"]:
                 machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
@@ -485,7 +485,7 @@ else:
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
 
-        # TAB 2: TẠO MỚI TÀI KHOẢN (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
+        # TAB 2: TẠO MỚI TÀI KHOẢN
         with tab_add:
             with st.form("form_add_user"):
                 st.subheader("Thêm tài khoản mới vào hệ thống")
@@ -519,7 +519,7 @@ else:
                         }
                         show_popup_message("TẠO TÀI KHOẢN THÀNH CÔNG", f"Đã khởi tạo thành công tài khoản **{a_username}**!", icon="👤")
 
-        # TAB 3: CHỈNH SỬA & XÓA TÀI KHOẢN (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
+        # TAB 3: CHỈNH SỬA & XÓA TÀI KHOẢN
         with tab_edit_delete:
             target_user = st.selectbox("Chọn tài khoản cần thao tác", list(st.session_state["USER_DB"].keys()))
             u_data = st.session_state["USER_DB"][target_user]
