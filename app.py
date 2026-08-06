@@ -25,6 +25,29 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
+# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ
+st.markdown("""
+    <style>
+    div[key="btn_home_nav"] > button {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        color: #ffffff !important;
+        border: none !important;
+        font-weight: 700 !important;
+        font-size: 16px !important;
+        border-radius: 10px !important;
+        height: 48px !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3) !important;
+        transition: all 0.3s ease !important;
+        margin-bottom: 20px !important;
+    }
+    div[key="btn_home_nav"] > button:hover {
+        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+        box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5) !important;
+        transform: translateY(-2px);
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
 # ==========================================
@@ -106,7 +129,7 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
     return df_pareto, data_4m
 
 # ==========================================
-# KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
+# KHỞI TẠO CƠ SỞ DỮ LIỆU
 # ==========================================
 if "USER_DB" not in st.session_state:
     st.session_state["USER_DB"] = {
@@ -219,16 +242,13 @@ else:
             user_pages, 
             key="menu_radio"
         )
-        st.session_state["selected_menu"] = selected_menu
         
+        if selected_menu != st.session_state["selected_menu"]:
+            st.session_state["selected_menu"] = selected_menu
+            st.rerun()
+
         st.markdown("---")
         st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
-
-    # Nút Quay về Trang chủ
-    top_col1, top_col2 = st.columns([8, 2])
-    with top_col2:
-        if selected_menu != "🎛️ Dashboard OEE":
-            st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
@@ -410,6 +430,9 @@ else:
     # TRANG 2: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
+        # NÚT VỀ TRANG CHỦ DASHBOARD NỔI BẬT
+        st.container(key="btn_home_nav").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
+
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
 
@@ -479,7 +502,7 @@ else:
             else:
                 st.error("🔒 Tài khoản của bạn **không có quyền Thêm mới** thiết bị!")
 
-        # TAB 3: CHỈNH SỬA MÁY MÓC (KIỂM TRA QUYỀN VÀ TRƯỜNG CỤ THỂ)
+        # TAB 3: CHỈNH SỬA MÁY MÓC
         with tab_m_edit:
             if "Chỉnh sửa" in user_m_perms:
                 if st.session_state["MACHINE_DB"]:
@@ -554,6 +577,9 @@ else:
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
+        # NÚT VỀ TRANG CHỦ DASHBOARD NỔI BẬT
+        st.container(key="btn_home_nav").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
+
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
@@ -577,7 +603,7 @@ else:
                     "Bộ phận": uinfo.get("department", ""),
                     "Chức vụ": uinfo.get("position", ""),
                     "Phân quyền (Role)": uinfo.get("role", ""),
-                    "Quyên máy móc": m_perms_str,
+                    "Quyền máy móc": m_perms_str,
                     "Các mục được sửa": edit_fields_str,
                     "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
                 })
