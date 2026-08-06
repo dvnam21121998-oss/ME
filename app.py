@@ -7,7 +7,7 @@ from datetime import datetime, date
 import calendar
 
 # ==========================================
-# CẤU HÌNH TRANG
+# CẤU HINH TRANG
 # ==========================================
 st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
 
@@ -28,7 +28,7 @@ def show_popup_message(title, message, icon="ℹ️"):
         st.rerun()
 
 # ==========================================
-# HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU
+# HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU & MÔ PHỎNG
 # ==========================================
 def load_sample_file_data(uploaded_file):
     """Hàm đọc file excel/csv và trả về DataFrame chuẩn hóa"""
@@ -75,6 +75,32 @@ def generate_mock_machine_data(machine_obj, start_date, end_date):
             "Sản lượng UPH": uph
         })
     return pd.DataFrame(data)
+
+def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
+    """Tạo dữ liệu Pareto và 4M tương ứng theo danh sách máy được chọn"""
+    seed_val = sum(ord(c) for m in machine_ids for c in m) + int(start_date.strftime("%d%m%Y"))
+    np.random.seed(seed_val)
+    
+    # Pareto Data
+    stations = ["Block 1", "Block 2", "Block 3", "Block 4", "Block 5", "Block 6", "Chưa xác định"]
+    downtimes = np.random.randint(200, 3000, size=len(stations))
+    df_pareto = pd.DataFrame({"Trạm": stations, "So_Phut": downtimes})
+    df_pareto = df_pareto.sort_values(by="So_Phut", ascending=False).reset_index(drop=True)
+    tong_thoi_gian = df_pareto["So_Phut"].sum()
+    df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
+    
+    # 4M Data
+    m_machine = int(np.random.uniform(500, 2000))
+    m_material = int(np.random.uniform(300, 1500))
+    m_method = int(np.random.uniform(100, 800))
+    m_unclassified = int(np.random.uniform(100, 600))
+    
+    data_4m = {
+        "labels": ['Máy móc (Machine)', 'Nguyên liệu (Material)', 'Phương pháp (Method)', 'Chưa phân loại'],
+        "values": [m_machine, m_material, m_method, m_unclassified]
+    }
+    
+    return df_pareto, data_4m
 
 # ==========================================
 # KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
@@ -167,7 +193,6 @@ else:
     
     # --- SIDEBAR MENU ---
     with st.sidebar:
-        # Logo chuyên nghiệp công nghiệp dạng Vector/Flat
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
@@ -202,7 +227,6 @@ else:
     # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "🎛️ Dashboard OEE":
-        # --- TIÊU ĐỀ CHÍNH NỔI BẬT ---
         st.markdown("""
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
                         padding: 22px; 
@@ -217,7 +241,7 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        # --- THANH TÌM KIẾM CẢI TIẾN: THEO MÃ/TÊN MÁY VÀ DÂY CHUYỀN ---
+        # --- THANH TÌM KIẾM CẢI TIẾN ---
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
         
         machine_db = st.session_state["MACHINE_DB"]
@@ -241,7 +265,7 @@ else:
             st.write("")
             btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
 
-        # Lọc dữ liệu theo đối tượng chọn
+        # Lọc danh sách máy được chọn
         filtered_machines = machine_db.copy()
 
         if selected_line != "Tất cả Lines":
@@ -258,87 +282,89 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ ---
-        st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
+        # --- NẠP DỮ LIỆU MÔ PHỎNG ĐỘNG CHO CÁC MÁY ĐƯỢC LỌC ---
+        all_df_list = []
+        for m_item in filtered_machines:
+            df_m = generate_mock_machine_data(m_item, start_date, end_date)
+            all_df_list.append(df_m)
 
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        if all_df_list:
+            df_filtered = pd.concat(all_df_list, ignore_index=True)
 
-        with kpi1:
-            with st.container(border=True):
-                st.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
+            # Tính toán chỉ số KPI tổng hợp cho Mục 01
+            avg_avail = df_filtered["Sẵn sàng (%)"].mean()
+            downtime_rate = round(100 - avg_avail, 1)
+            total_downtime = df_filtered["Downtime (Phút)"].sum()
+            avg_mtbf = int(df_filtered["Sản lượng UPH"].mean() * (avg_avail / 100) / 2.5) if avg_avail > 0 else 0
+            avg_mttr = round(total_downtime / max(len(df_filtered), 1), 1)
 
-        with kpi2:
-            with st.container(border=True):
-                st.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
+            # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (ĐỘNG ACCORDING TO FILTER) ---
+            st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
 
-        with kpi3:
-            with st.container(border=True):
-                st.metric(label="MTBF (Chạy TB trước khi hỏng)", value="316 Phút", delta="Tốt", delta_color="normal")
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
-        with kpi4:
-            with st.container(border=True):
-                st.metric(label="MTTR (Thời gian sửa TB)", value="45.1 Phút", delta="+5 Phút", delta_color="inverse")
+            with kpi1:
+                with st.container(border=True):
+                    st.metric(label="Downtime Rate", value=f"{downtime_rate}%", delta="Cập nhật theo lọc", delta_color="inverse")
 
-        st.markdown("---")
+            with kpi2:
+                with st.container(border=True):
+                    st.metric(label="Availability (Sẵn sàng)", value=f"{round(avg_avail, 1)}%", delta="Mức trung bình", delta_color="normal")
 
-        # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M ---
-        if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
-            st.markdown("### 📊 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M")
-            pareto_col, pie_col = st.columns([6, 4])
-            
-            with pareto_col:
-                df_pareto = pd.DataFrame({
-                    "Trạm": ["Chưa xác định", "Block 5", "Block 6", "Block 7", "Block 4", "Block 1", "Block 3"],
-                    "So_Phut": [2650, 2200, 1500, 900, 750, 500, 400]
-                })
-                tong_thoi_gian = df_pareto["So_Phut"].sum()
-                df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
+            with kpi3:
+                with st.container(border=True):
+                    st.metric(label="MTBF (Chạy TB trước khi hỏng)", value=f"{avg_mtbf} Phút", delta="Ước tính", delta_color="normal")
 
-                fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
-                fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
-                fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                st.plotly_chart(fig_pareto, use_container_width=True)
+            with kpi4:
+                with st.container(border=True):
+                    st.metric(label="MTTR (Thời gian sửa TB)", value=f"{avg_mttr} Phút", delta="TB trạm", delta_color="inverse")
 
-            with pie_col:
-                labels = ['Máy móc (Machine)', 'Nguyên liệu (Material)', 'Phương pháp (Method)', 'Chưa phân loại']
-                values = [1048, 735, 135, 480]
-                colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
-                fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.4, marker=dict(colors=colors))])
-                fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
-                st.plotly_chart(fig_pie, use_container_width=True)
-        else:
-            st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Operator. Chỉ xem được thông số tổng quan.")
+            st.markdown("---")
 
-        st.markdown("---")
+            # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M (ĐỘNG ACCORDING TO FILTER) ---
+            if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
+                st.markdown(f"### 📊 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name})</span>", unsafe_allow_html=True)
+                
+                selected_ids = [m["id"] for m in filtered_machines]
+                df_pareto, data_4m = generate_mock_pareto_4m_data(selected_ids, start_date, end_date)
 
-        # --- SECTION 3: PHÂN TÍCH TỰ ĐỘNG ---
-        if filtered_machines:
+                pareto_col, pie_col = st.columns([6, 4])
+                
+                with pareto_col:
+                    fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
+                    fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
+                    fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
+                    fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                    st.plotly_chart(fig_pareto, use_container_width=True)
+
+                with pie_col:
+                    colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
+                    fig_pie = go.Figure(data=[go.Pie(labels=data_4m["labels"], values=data_4m["values"], hole=.4, marker=dict(colors=colors))])
+                    fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
+                    st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Operator. Chỉ xem được thông số tổng quan.")
+
+            st.markdown("---")
+
+            # --- SECTION 3: PHÂN TÍCH TỰ ĐỘNG ---
             st.markdown(f"### 📈 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
             
-            all_df_list = []
-            for m_item in filtered_machines:
-                df_m = generate_mock_machine_data(m_item, start_date, end_date)
-                all_df_list.append(df_m)
-            
-            if all_df_list:
-                df_filtered = pd.concat(all_df_list, ignore_index=True)
+            col_chart, col_table = st.columns([6, 4])
+            with col_chart:
+                fig_line = go.Figure()
+                for m_item in filtered_machines:
+                    df_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
+                    fig_line.add_trace(go.Scatter(
+                        x=df_sub["Ngày"], y=df_sub["OEE (%)"],
+                        mode='lines+markers', name=f"{m_item['id']} - {m_item['name']}"
+                    ))
+                fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Được Lọc", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
+                st.plotly_chart(fig_line, use_container_width=True)
 
-                col_chart, col_table = st.columns([6, 4])
-                with col_chart:
-                    fig_line = go.Figure()
-                    for m_item in filtered_machines:
-                        df_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
-                        fig_line.add_trace(go.Scatter(
-                            x=df_sub["Ngày"], y=df_sub["OEE (%)"],
-                            mode='lines+markers', name=f"{m_item['id']} - {m_item['name']}"
-                        ))
-                    fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Được Lọc", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
-                    st.plotly_chart(fig_line, use_container_width=True)
-
-                with col_table:
-                    st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
-                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
+            with col_table:
+                st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
+                st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
 
             st.markdown("---")
 
