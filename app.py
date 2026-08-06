@@ -12,7 +12,7 @@ import calendar
 st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
 
 ALL_FEATURES = [
-    "📊 Dashboard OEE",
+    "🎛️ Dashboard OEE",
     "🏭 Quản Lý Máy Móc",
     "👤 Quản Lý Tài Khoản"
 ]
@@ -95,7 +95,7 @@ if "USER_DB" not in st.session_state:
             "department": "Kỹ Thuật (IE)",
             "position": "Trưởng Nhóm IE",
             "role": "Manager",
-            "allowed_pages": ["📊 Dashboard OEE"]
+            "allowed_pages": ["🎛️ Dashboard OEE"]
         }
     }
 
@@ -122,7 +122,7 @@ if "MACHINE_DB" not in st.session_state:
     ]
 
 if "selected_menu" not in st.session_state:
-    st.session_state["selected_menu"] = "📊 Dashboard OEE"
+    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
@@ -140,8 +140,8 @@ def login():
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
-                    st.session_state["selected_menu"] = "📊 Dashboard OEE"
-                    st.session_state["menu_radio"] = "📊 Dashboard OEE"
+                    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+                    st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
                     st.toast("🔔 Đăng nhập thành công!", icon="✅")
                     st.rerun()
                 else:
@@ -151,11 +151,11 @@ def logout():
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
-    st.session_state["selected_menu"] = "📊 Dashboard OEE"
+    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
 def go_home():
-    st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    st.session_state["menu_radio"] = "📊 Dashboard OEE"
+    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+    st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
@@ -167,19 +167,20 @@ else:
     
     # --- SIDEBAR MENU ---
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2046/2046024.png", width=90)
+        # Logo chuyên nghiệp công nghiệp dạng Vector/Flat
+        st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
         st.markdown("---")
         
-        user_pages = current_user.get("allowed_pages", ["📊 Dashboard OEE"])
-        if "📊 Dashboard OEE" in user_pages:
-            user_pages.remove("📊 Dashboard OEE")
-            user_pages.insert(0, "📊 Dashboard OEE")
+        user_pages = current_user.get("allowed_pages", ["🎛️ Dashboard OEE"])
+        if "🎛️ Dashboard OEE" in user_pages:
+            user_pages.remove("🎛️ Dashboard OEE")
+            user_pages.insert(0, "🎛️ Dashboard OEE")
 
         if st.session_state["selected_menu"] not in user_pages:
-            st.session_state["selected_menu"] = "📊 Dashboard OEE"
-            st.session_state["menu_radio"] = "📊 Dashboard OEE"
+            st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+            st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
 
         selected_menu = st.radio(
             "📌 ĐIỀU HƯỚNG HỆ THỐNG", 
@@ -194,13 +195,13 @@ else:
     # Nút Quay về Trang chủ
     top_col1, top_col2 = st.columns([8, 2])
     with top_col2:
-        if selected_menu != "📊 Dashboard OEE":
+        if selected_menu != "🎛️ Dashboard OEE":
             st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
-    if selected_menu == "📊 Dashboard OEE":
+    if selected_menu == "🎛️ Dashboard OEE":
         # --- TIÊU ĐỀ CHÍNH NỔI BẬT ---
         st.markdown("""
             <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
@@ -211,7 +212,7 @@ else:
                         margin-bottom: 25px; 
                         border: 1px solid #334155;">
                 <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; letter-spacing: 1px; color: #38bdf8; text-transform: uppercase;">
-                    📊 MANAGEMENT DASHBOARD V2 ACTIONABLE
+                    🎛️ MANAGEMENT DASHBOARD V2 ACTIONABLE
                 </h1>
             </div>
         """, unsafe_allow_html=True)
@@ -257,8 +258,8 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (LOẠI BỎ KHUNG NỀN TRẮNG) ---
-        st.markdown(f"### 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
+        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ ---
+        st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
 
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
@@ -282,7 +283,7 @@ else:
 
         # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M ---
         if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
-            st.markdown("### 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M")
+            st.markdown("### 📊 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M")
             pareto_col, pie_col = st.columns([6, 4])
             
             with pareto_col:
@@ -313,7 +314,7 @@ else:
 
         # --- SECTION 3: PHÂN TÍCH TỰ ĐỘNG ---
         if filtered_machines:
-            st.markdown(f"### 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
+            st.markdown(f"### 📈 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
             
             all_df_list = []
             for m_item in filtered_machines:
@@ -348,7 +349,7 @@ else:
             month_start = date(current_year, current_month, 1)
             month_end = date(current_year, current_month, last_day)
 
-            st.markdown(f"### 04. Biểu Đồ & Bảng Tổng Hợp Xu Hướng Cả Tháng {current_month}/{current_year}")
+            st.markdown(f"### 🗓️ 04. Biểu Đồ & Bảng Tổng Hợp Xu Hướng Cả Tháng {current_month}/{current_year}")
 
             month_df_list = []
             for m_item in filtered_machines:
@@ -525,7 +526,7 @@ else:
                     a_role = st.text_input("Phân quyền (Role)*", value="Operator", placeholder="Tự nhập quyền (VD: Admin, Manager, Operator, Viewer...)")
 
                 st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
-                a_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=["📊 Dashboard OEE"])
+                a_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=["🎛️ Dashboard OEE"])
 
                 btn_add = st.form_submit_button("➕ Tạo Tài Khoản Mới", use_container_width=True)
                 if btn_add:
