@@ -7,7 +7,7 @@ from datetime import datetime, date
 import calendar
 
 # ==========================================
-# CẤU HINH TRANG
+# CẤU HÌNH TRANG
 # ==========================================
 st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
 
@@ -31,7 +31,6 @@ def show_popup_message(title, message, icon="ℹ️"):
 # HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU & MÔ PHỎNG
 # ==========================================
 def load_sample_file_data(uploaded_file):
-    """Hàm đọc file excel/csv và trả về DataFrame chuẩn hóa"""
     try:
         filename = uploaded_file.name.lower()
         if filename.endswith('.csv'):
@@ -45,7 +44,6 @@ def load_sample_file_data(uploaded_file):
         return None
 
 def generate_mock_machine_data(machine_obj, start_date, end_date):
-    """Tạo dữ liệu phân tích mô phỏng dựa trên Máy cụ thể và khoảng thời gian tìm kiếm"""
     date_range = pd.date_range(start=start_date, end=end_date)
     data = []
     
@@ -77,11 +75,9 @@ def generate_mock_machine_data(machine_obj, start_date, end_date):
     return pd.DataFrame(data)
 
 def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
-    """Tạo dữ liệu Pareto và 4M tương ứng theo danh sách máy được chọn"""
     seed_val = sum(ord(c) for m in machine_ids for c in m) + int(start_date.strftime("%d%m%Y"))
     np.random.seed(seed_val)
     
-    # Pareto Data
     stations = ["Block 1", "Block 2", "Block 3", "Block 4", "Block 5", "Block 6", "Chưa xác định"]
     downtimes = np.random.randint(200, 3000, size=len(stations))
     df_pareto = pd.DataFrame({"Trạm": stations, "So_Phut": downtimes})
@@ -89,7 +85,6 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
     tong_thoi_gian = df_pareto["So_Phut"].sum()
     df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
     
-    # 4M Data
     m_machine = int(np.random.uniform(500, 2000))
     m_material = int(np.random.uniform(300, 1500))
     m_method = int(np.random.uniform(100, 800))
@@ -121,7 +116,7 @@ if "USER_DB" not in st.session_state:
             "department": "Kỹ Thuật (IE)",
             "position": "Trưởng Nhóm IE",
             "role": "Manager",
-            "allowed_pages": ["🎛️ Dashboard OEE"]
+            "allowed_pages": ["🎛️ Dashboard OEE", "🏭 Quản Lý Máy Móc"]
         }
     }
 
@@ -190,12 +185,13 @@ if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
     current_user = st.session_state["user_info"]
+    is_admin = current_user.get("role", "").lower() == "admin"
     
     # --- SIDEBAR MENU ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/3652/3652191.png", width=95)
         st.success(f"👋 **{current_user['name']}**")
-        st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
+        st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**\n\n🔑 Quyền: **{current_user.get('role', 'N/A')}**")
         st.markdown("---")
         
         user_pages = current_user.get("allowed_pages", ["🎛️ Dashboard OEE"])
@@ -241,7 +237,6 @@ else:
             </div>
         """, unsafe_allow_html=True)
 
-        # --- THANH TÌM KIẾM CẢI TIẾN ---
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
         
         machine_db = st.session_state["MACHINE_DB"]
@@ -265,7 +260,6 @@ else:
             st.write("")
             btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
 
-        # Lọc danh sách máy được chọn
         filtered_machines = machine_db.copy()
 
         if selected_line != "Tất cả Lines":
@@ -282,7 +276,6 @@ else:
 
         st.markdown("---")
 
-        # --- NẠP DỮ LIỆU MÔ PHỎNG ĐỘNG CHO CÁC MÁY ĐƯỢC LỌC ---
         all_df_list = []
         for m_item in filtered_machines:
             df_m = generate_mock_machine_data(m_item, start_date, end_date)
@@ -291,14 +284,12 @@ else:
         if all_df_list:
             df_filtered = pd.concat(all_df_list, ignore_index=True)
 
-            # Tính toán chỉ số KPI tổng hợp cho Mục 01
             avg_avail = df_filtered["Sẵn sàng (%)"].mean()
             downtime_rate = round(100 - avg_avail, 1)
             total_downtime = df_filtered["Downtime (Phút)"].sum()
             avg_mtbf = int(df_filtered["Sản lượng UPH"].mean() * (avg_avail / 100) / 2.5) if avg_avail > 0 else 0
             avg_mttr = round(total_downtime / max(len(df_filtered), 1), 1)
 
-            # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (ĐỘNG ACCORDING TO FILTER) ---
             st.markdown(f"### ⚙️ 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
 
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
@@ -321,7 +312,6 @@ else:
 
             st.markdown("---")
 
-            # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M (ĐỘNG ACCORDING TO FILTER) ---
             if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
                 st.markdown(f"### 📊 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name})</span>", unsafe_allow_html=True)
                 
@@ -347,7 +337,6 @@ else:
 
             st.markdown("---")
 
-            # --- SECTION 3: PHÂN TÍCH TỰ ĐỘNG ---
             st.markdown(f"### 📈 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
             
             col_chart, col_table = st.columns([6, 4])
@@ -368,7 +357,6 @@ else:
 
             st.markdown("---")
 
-            # SECTION 4: BẢNG TỔNG HỢP CẢ THÁNG
             current_month = start_date.month
             current_year = start_date.year
             _, last_day = calendar.monthrange(current_year, current_month)
@@ -414,7 +402,13 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
 
-        tab_m_list, tab_m_add, tab_m_edit_del = st.tabs(["📋 Danh Sách Thiết Bị", "➕ Thêm Thiết Bị Mới", "✏️ Chỉnh Sửa / Xóa Máy"])
+        # TÁCH TAB CHỈNH SỬA VÀ XÓA RIÊNG BIỆT
+        tab_m_list, tab_m_add, tab_m_edit, tab_m_delete = st.tabs([
+            "📋 Danh Sách Thiết Bị", 
+            "➕ Thêm Thiết Bị Mới", 
+            "✏️ Chỉnh Sửa Máy", 
+            "🗑️ Xóa Máy"
+        ])
 
         # TAB 1: DANH SÁCH MÁY MÓC
         with tab_m_list:
@@ -466,30 +460,32 @@ else:
                     })
                     show_popup_message("TẠO MỚI THÀNH CÔNG", f"Đã lưu thành công thiết bị **{m_name} ({m_id})** vào Line **{m_line}**!", icon="🎉")
 
-        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
-        with tab_m_edit_del:
+        # TAB 3: CHỈNH SỬA MÁY MÓC (CÓ KIỂM TRA QUYỀN ADMIN)
+        with tab_m_edit:
             if st.session_state["MACHINE_DB"]:
+                if not is_admin:
+                    st.error("🔒 **Hạn chế truy cập:** Chỉ tài khoản **Admin** mới có quyền chỉnh sửa các thông tin thuộc về máy móc!")
+                
                 machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
-                selected_m_option = st.selectbox("Chọn máy cần thao tác", machine_options)
+                selected_m_option = st.selectbox("Chọn máy cần chỉnh sửa", machine_options, key="select_edit_m")
                 selected_m_id = selected_m_option.split(" - ")[0]
                 
                 m_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id), None)
                 cur_m = st.session_state["MACHINE_DB"][m_idx]
 
-                col_e_m, col_d_m = st.columns([7, 3])
+                st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
+                with st.form("form_edit_machine"):
+                    e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""), disabled=not is_admin)
+                    e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""), disabled=not is_admin)
+                    e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)), disabled=not is_admin)
+                    e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""), disabled=not is_admin)
+                    
+                    st.info(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
+                    e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template", disabled=not is_admin)
 
-                with col_e_m:
-                    st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
-                    with st.form("form_edit_machine"):
-                        e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""))
-                        e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""))
-                        e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)))
-                        e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""))
-                        
-                        st.info(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
-                        e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template")
-
-                        if st.form_submit_button("💾 Cập Nhật & Lưu Thay Đổi", use_container_width=True):
+                    btn_update_m = st.form_submit_button("💾 Cập Nhật & Lưu Thay Đổi", use_container_width=True, disabled=not is_admin)
+                    if btn_update_m:
+                        if is_admin:
                             new_t_filename = e_template_file.name if e_template_file else cur_m.get("template_file", "Chưa có file mẫu")
                             has_f = True if e_template_file or cur_m.get("has_file") else False
 
@@ -503,15 +499,25 @@ else:
                                 "has_file": has_f
                             }
                             show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho thiết bị **{selected_m_id}**!", icon="💾")
-
-                with col_d_m:
-                    st.subheader("❌ Xóa thiết bị")
-                    st.warning(f"Thao tác này sẽ xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống.")
-                    if st.button("🗑️ Xóa Thiết Bị", type="primary", use_container_width=True):
-                        st.session_state["MACHINE_DB"].pop(m_idx)
-                        show_popup_message("ĐÃ XÓA THIẾT BỊ", f"Đã xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống!", icon="🗑️")
             else:
-                st.info("Chưa có máy nào để chỉnh sửa hoặc xóa.")
+                st.info("Chưa có máy nào để chỉnh sửa.")
+
+        # TAB 4: XÓA MÁY MÓC
+        with tab_m_delete:
+            if st.session_state["MACHINE_DB"]:
+                st.subheader("🗑️ Xóa thiết bị khỏi hệ thống")
+                machine_del_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
+                del_m_option = st.selectbox("Chọn máy cần xóa", machine_del_options, key="select_del_m")
+                del_m_id = del_m_option.split(" - ")[0]
+                
+                m_del_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == del_m_id), None)
+                
+                st.warning(f"⚠️ Thao tác này sẽ xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống.")
+                if st.button("🗑️ Xác Nhận Xóa Thiết Bị", type="primary", use_container_width=True):
+                    st.session_state["MACHINE_DB"].pop(m_del_idx)
+                    show_popup_message("ĐÃ XÓA THIẾT BỊ", f"Đã xóa vĩnh viễn máy **{del_m_id}** khỏi hệ thống!", icon="🗑️")
+            else:
+                st.info("Chưa có máy nào để xóa.")
 
     # ---------------------------------------------------------
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
@@ -520,7 +526,13 @@ else:
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
-        tab_list, tab_add, tab_edit_delete = st.tabs(["📋 Danh Sách Tài Khoản", "➕ Tạo Mới Tài Khoản", "✏️ Chỉnh Sửa / Xóa"])
+        # TÁCH TAB CHỈNH SỬA VÀ XÓA RIÊNG BIỆT
+        tab_list, tab_add, tab_edit, tab_delete = st.tabs([
+            "📋 Danh Sách Tài Khoản", 
+            "➕ Tạo Mới Tài Khoản", 
+            "✏️ Chỉnh Sửa Tài Khoản", 
+            "🗑️ Xóa Tài Khoản"
+        ])
 
         # TAB 1: DANH SÁCH
         with tab_list:
@@ -571,45 +583,45 @@ else:
                         }
                         show_popup_message("TẠO TÀI KHOẢN THÀNH CÔNG", f"Đã khởi tạo thành công tài khoản **{a_username}**!", icon="👤")
 
-        # TAB 3: CHỈNH SỬA & XÓA TÀI KHOẢN
-        with tab_edit_delete:
-            target_user = st.selectbox("Chọn tài khoản cần thao tác", list(st.session_state["USER_DB"].keys()))
+        # TAB 3: CHỈNH SỬA TÀI KHOẢN
+        with tab_edit:
+            target_user = st.selectbox("Chọn tài khoản cần chỉnh sửa", list(st.session_state["USER_DB"].keys()), key="select_edit_user")
             u_data = st.session_state["USER_DB"][target_user]
 
-            col_edit, col_del = st.columns([7, 3])
+            st.subheader(f"✏️ Cập nhật thông tin: {target_user}")
+            with st.form("form_edit_user"):
+                e_password = st.text_input("Mật khẩu mới", value=u_data.get("password", ""))
+                e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
+                e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
+                e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
+                e_role = st.text_input("Phân quyền (Role)", value=u_data.get("role", "Operator"))
 
-            with col_edit:
-                st.subheader(f"✏️ Cập nhật thông tin: {target_user}")
-                with st.form("form_edit_user"):
-                    e_password = st.text_input("Mật khẩu mới", value=u_data.get("password", ""))
-                    e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
-                    e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
-                    e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
-                    e_role = st.text_input("Phân quyền (Role)", value=u_data.get("role", "Operator"))
+                st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
+                e_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
 
-                    st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
-                    e_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
-
-                    btn_update = st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True)
-                    if btn_update:
-                        st.session_state["USER_DB"][target_user] = {
-                            "password": e_password,
-                            "name": e_fullname,
-                            "department": e_dept,
-                            "position": e_pos,
-                            "role": e_role.strip(),
-                            "allowed_pages": e_pages
-                        }
-                        if target_user == st.session_state["username"]:
-                            st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
-                        show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho tài khoản **{target_user}**!", icon="💾")
-
-            with col_del:
-                st.subheader("❌ Xóa tài khoản")
-                st.warning(f"Thao tác này không thể hoàn tác với tài khoản **{target_user}**.")
-                if st.button("🗑️ Xóa Tài Khoản", type="primary", use_container_width=True):
+                btn_update = st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True)
+                if btn_update:
+                    st.session_state["USER_DB"][target_user] = {
+                        "password": e_password,
+                        "name": e_fullname,
+                        "department": e_dept,
+                        "position": e_pos,
+                        "role": e_role.strip(),
+                        "allowed_pages": e_pages
+                    }
                     if target_user == st.session_state["username"]:
-                        show_popup_message("KHÔNG THỂ XÓA", "Bạn không thể xóa tài khoản hiện tại đang đăng nhập!", icon="🚫")
-                    else:
-                        del st.session_state["USER_DB"][target_user]
-                        show_popup_message("ĐÃ XÓA TÀI KHOẢN", f"Đã xóa tài khoản **{target_user}** khỏi hệ thống!", icon="🗑️")
+                        st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
+                    show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho tài khoản **{target_user}**!", icon="💾")
+
+        # TAB 4: XÓA TÀI KHOẢN
+        with tab_delete:
+            del_user = st.selectbox("Chọn tài khoản cần xóa", list(st.session_state["USER_DB"].keys()), key="select_del_user")
+            st.subheader(f"🗑️ Xóa tài khoản: {del_user}")
+            st.warning(f"⚠️ Thao tác này không thể hoàn tác với tài khoản **{del_user}**.")
+            
+            if st.button("🗑️ Xác Nhận Xóa Tài Khoản", type="primary", use_container_width=True):
+                if del_user == st.session_state["username"]:
+                    show_popup_message("KHÔNG THỂ XÓA", "Bạn không thể xóa tài khoản hiện tại đang đăng nhập!", icon="🚫")
+                else:
+                    del st.session_state["USER_DB"][del_user]
+                    show_popup_message("ĐÃ XÓA TÀI KHOẢN", f"Đã xóa tài khoản **{del_user}** khỏi hệ thống!", icon="🗑️")
