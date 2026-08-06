@@ -1,119 +1,348 @@
 import streamlit as st
+
 import pandas as pd
+
 import plotly.graph_objects as go
+
 from plotly.subplots import make_subplots
 
-# 1. Cấu hình trang
-st.set_page_config(page_title="Dashboard OEE", layout="wide")
+# ==========================================
 
-# --- CƠ SỞ DỮ LIỆU NGƯỜI DÙNG (Giả lập) ---
-USER_DB = {
-    "admin": {"password": "123", "role": "Admin", "name": "Giám Đốc"},
-    "manager": {"password": "123", "role": "Manager", "name": "Kỹ Sư IE"},
-    "operator": {"password": "123", "role": "Operator", "name": "Tổ Trưởng Line 1"}
-}
+# CẤU HÌNH TRANG
 
-# --- HÀM KIỂM TRA ĐĂNG NHẬP ---
+# ==========================================
+
+st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
+
+# ==========================================
+
+# KHỞI TẠO CƠ SỞ DỮ LIỆU (Lưu trong Session State để có thể cập nhật)
+
+# ==========================================
+
+# 1. Database Người dùng
+
+if "USER_DB" not in st.session_state:
+
+    st.session_state["USER_DB"] = {
+
+        "admin": {"password": "123", "role": "Admin", "name": "Giám Đốc Nhà Máy"},
+
+        "manager": {"password": "123", "role": "Manager", "name": "Kỹ Sư IE"},
+
+        "operator": {"password": "123", "role": "Operator", "name": "Tổ Trưởng Line G103"}
+
+    }
+
+# 2. Database Máy móc
+
+if "MACHINE_DB" not in st.session_state:
+
+    st.session_state["MACHINE_DB"] = [
+
+        {"id": "M01", "name": "Máy dập Block 1", "line": "G103", "uph": 1200},
+
+        {"id": "M02", "name": "Máy Test Hipot", "line": "G103", "uph": 800},
+
+        {"id": "M03", "name": "Máy hàn tự động", "line": "G103", "uph": 600}
+
+    ]
+
+# ==========================================
+
+# CÁC HÀM XỬ LÝ ĐĂNG NHẬP / ĐĂNG XUẤT
+
+# ==========================================
+
 def login():
-    st.title("🔐 Đăng nhập Hệ Thống OEE")
-    st.write("Vui lòng đăng nhập để tiếp tục (Tài khoản mẫu: admin / manager / operator - Mật khẩu: 123)")
-    with st.form("login_form"):
-        username = st.text_input("Tên đăng nhập")
-        password = st.text_input("Mật khẩu", type="password")
-        submit_button = st.form_submit_button("Đăng nhập")
-        
-        if submit_button:
-            if username in USER_DB and USER_DB[username]["password"] == password:
-                # Lưu thông tin vào session_state
-                st.session_state["logged_in"] = True
-                st.session_state["username"] = username
-                st.session_state["name"] = USER_DB[username]["name"]
-                st.session_state["role"] = USER_DB[username]["role"]
-                st.rerun()
-            else:
-                st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
 
-# --- HÀM ĐĂNG XUẤT ---
+    st.markdown("<h2 style='text-align: center; color: #1e293b;'>🔐 ĐĂNG NHẬP HỆ THỐNG OEE</h2>", unsafe_allow_html=True)
+
+    st.markdown("<p style='text-align: center;'>Tài khoản mẫu: <b>admin</b> / <b>manager</b> / <b>operator</b> | Mật khẩu: <b>123</b></p>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+
+    with col2:
+
+        with st.form("login_form"):
+
+            username = st.text_input("Tên đăng nhập")
+
+            password = st.text_input("Mật khẩu", type="password")
+
+            submit_button = st.form_submit_button("Đăng nhập", use_container_width=True)
+
+            if submit_button:
+
+                # Kiểm tra trong Database (đã được đưa vào session state)
+
+                if username in st.session_state["USER_DB"] and st.session_state["USER_DB"][username]["password"] == password:
+
+                    st.session_state["logged_in"] = True
+
+                    st.session_state["username"] = username
+
+                    st.session_state["name"] = st.session_state["USER_DB"][username]["name"]
+
+                    st.session_state["role"] = st.session_state["USER_DB"][username]["role"]
+
+                    st.rerun()
+
+                else:
+
+                    st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
+
 def logout():
-    st.session_state.clear()
+
+    # Chỉ xóa trạng thái đăng nhập, giữ lại Database
+
+    st.session_state["logged_in"] = False
+
+    st.session_state.pop("username", None)
+
+    st.session_state.pop("name", None)
+
+    st.session_state.pop("role", None)
+
     st.rerun()
 
-# --- KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP ---
+# ==========================================
+
+# GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
+
+# ==========================================
+
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
-    # Chưa đăng nhập -> Hiện màn hình đăng nhập
+
     login()
+
 else:
-    # Đã đăng nhập -> Hiện giao diện phần mềm
+
+    # --- SIDEBAR MENU ---
+
     with st.sidebar:
-        st.success(f"👋 Xin chào, {st.session_state['name']}!")
-        st.info(f"Vai trò: **{st.session_state['role']}**")
-        st.button("Đăng xuất", on_click=logout)
 
-    st.title("📊 Hệ Thống Quản Lý OEE Nhà Máy")
+        st.image("https://cdn-icons-png.flaticon.com/512/2046/2046024.png", width=100)
 
-    # ---------------------------------------------------------
-    # PHẦN 1: AI CŨNG CÓ THỂ XEM (KPI Cơ bản)
-    # ---------------------------------------------------------
-    oee_data = {"OEE": 82.5, "Availability": 87.0, "Performance": 94.2, "Quality": 98.1}
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric(label="OEE Tổng", value=f"{oee_data['OEE']}%")
-    col2.metric(label="Sẵn sàng (A)", value=f"{oee_data['Availability']}%", delta="-12%")
-    col3.metric(label="Hiệu suất (P)", value=f"{oee_data['Performance']}%")
-    col4.metric(label="Chất lượng (Q)", value=f"{oee_data['Quality']}%")
+        st.success(f"👋 Xin chào, **{st.session_state['name']}**!")
+st.info(f"Vai trò: **{st.session_state['role']}**")
+
+        st.markdown("---")
+
+        st.button("Đăng xuất", on_click=logout, use_container_width=True)
+
+    # --- HEADER ---
+
+    st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD V2 ACTIONABLE</h1>", unsafe_allow_html=True)
 
     st.markdown("---")
 
     # ---------------------------------------------------------
-    # PHẦN 2: PHÂN QUYỀN - CHỈ MANAGER VÀ ADMIN ĐƯỢC XEM
+
+    # PHẦN 1: KPI TỔNG QUAN (Ai cũng xem được)
+
     # ---------------------------------------------------------
+
+    st.markdown("### 01. Equipment Health Overview")
+
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+
+    kpi1.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
+
+    kpi2.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
+
+    kpi3.metric(label="MTBF (Chạy TB trước khi hỏng)", value="316 Phút", delta="Tốt", delta_color="normal")
+
+    kpi4.metric(label="MTTR (Thời gian sửa TB)", value="45.1 Phút", delta="+5 Phút", delta_color="inverse")
+
+    st.markdown("---")
+
+    # ---------------------------------------------------------
+
+    # PHẦN 2: BIỂU ĐỒ PHÂN TÍCH CHUYÊN SÂU (Chỉ Manager & Admin)
+
+    # ---------------------------------------------------------
+
     if st.session_state["role"] in ["Manager", "Admin"]:
-        st.subheader("Phân tích Pareto: Top Nguyên Nhân Dừng Máy")
-        
-        # Dữ liệu và vẽ biểu đồ Pareto
-        df = pd.DataFrame({
-            "Lý do": ["Kẹt phôi / Kẹt máy", "Chờ nguyên liệu", "Hỏng cảm biến", "Vệ sinh đầu ca", "Chờ QC kiểm tra"],
-            "So_Phut": [150, 90, 60, 40, 25]
-        })
-        df = df.sort_values(by="So_Phut", ascending=False).reset_index(drop=True)
-        tong_thoi_gian = df["So_Phut"].sum()
-        df["Tich_Luy"] = df["So_Phut"].cumsum()
-        df["Phan_Tram_Tich_Luy"] = (df["Tich_Luy"] / tong_thoi_gian) * 100
 
-        fig = make_subplots(specs=[[{"secondary_y": True}]])
-        fig.add_trace(
-            go.Bar(x=df["Lý do"], y=df["So_Phut"], name="Thời gian dừng (Phút)", marker_color="#e11d48"),
-            secondary_y=False
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=df["Lý do"], 
-                y=df["Phan_Tram_Tich_Luy"], 
-                name="% Tích lũy", 
-                mode="lines+markers+text", 
-                text=df["Phan_Tram_Tich_Luy"].round(1).astype(str) + "%", 
-                textposition="top left", 
-                marker=dict(color="#0369a1", size=8), 
-                line=dict(width=3)
-            ),
-            secondary_y=True
-        )
-        fig.update_layout(
-            title_text="Biểu đồ Pareto Downtime", 
-            hovermode="x unified", 
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        fig.update_yaxes(title_text="Số phút", secondary_y=False)
-        fig.update_yaxes(title_text="Tỷ lệ %", range=[0, 110], secondary_y=True)
+        # (Giữ nguyên code biểu đồ Pareto và Heatmap như bản trước)
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("### 03. Pareto Downtime (80/20) & Phân loại 4M")
+
+        pareto_col, pie_col = st.columns([6, 4])
+
+        with pareto_col:
+
+            df_pareto = pd.DataFrame({
+
+                "Trạm": ["Chưa xác định", "Block 5", "Block 6", "Block 7", "Block 4", "Block 1", "Block 3"],
+
+                "So_Phut": [2650, 2200, 1500, 900, 750, 500, 400]
+
+            })
+
+            tong_thoi_gian = df_pareto["So_Phut"].sum()
+
+            df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
+
+            fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
+
+            fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
+
+            fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
+
+            fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+
+            st.plotly_chart(fig_pareto, use_container_width=True)
+
+        with pie_col:
+
+            labels = ['Máy móc (Machine)', 'Nguyên liệu (Material)', 'Phương pháp (Method)', 'Chưa phân loại']
+
+            values = [1048, 735, 135, 480]
+
+            colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
+
+            fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.4, marker=dict(colors=colors))])
+
+            fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
+
+            st.plotly_chart(fig_pie, use_container_width=True)
+
     else:
-        # Lời nhắn dành cho Operator
-        st.info("🔒 Bạn cần quyền Quản lý (Manager) hoặc Giám đốc (Admin) để xem biểu đồ phân tích sâu.")
+st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
 
     # ---------------------------------------------------------
-    # PHẦN 3: PHÂN QUYỀN - CHỈ ADMIN ĐƯỢC XEM
+
+    # PHẦN 3: TÍNH NĂNG ADMIN (Cấp tài khoản & Thêm máy móc)
+
     # ---------------------------------------------------------
+
     if st.session_state["role"] == "Admin":
+
         st.markdown("---")
-        st.subheader("⚙️ Bảng Điều Khiển Quản Trị Hệ Thống")
-        st.warning("Khu vực này chỉ dành cho Admin. Nơi đây sẽ chứa các tính năng như thêm người dùng, cấu hình máy móc, thay đổi ca làm việc...")
+
+        st.markdown("### ⚙️ KHU VỰC QUẢN TRỊ HỆ THỐNG")
+
+        # Tạo 2 Tab để quản lý cho gọn gàng
+
+        tab1, tab2 = st.tabs(["👤 Quản Lý Tài Khoản", "🏭 Quản Lý Máy Móc"])
+
+        # --- TAB 1: CẤP TÀI KHOẢN ---
+
+        with tab1:
+
+            col_list, col_add = st.columns([6, 4])
+
+            with col_list:
+
+                st.subheader("Danh sách tài khoản")
+
+                # Chuyển đổi dữ liệu user sang bảng (DataFrame) để hiển thị đẹp hơn
+
+                user_list = []
+
+                for uname, info in st.session_state["USER_DB"].items():
+
+                    user_list.append({"Tên đăng nhập": uname, "Họ và Tên": info["name"], "Phân quyền": info["role"]})
+
+                st.dataframe(pd.DataFrame(user_list), use_container_width=True)
+
+            with col_add:
+
+                st.subheader("➕ Cấp tài khoản mới")
+
+                with st.form("add_user_form"):
+
+                    new_user = st.text_input("Tên đăng nhập (viết liền không dấu)*")
+
+                    new_pass = st.text_input("Mật khẩu*", type="password")
+
+                    new_name = st.text_input("Họ và Tên người dùng")
+
+                    new_role = st.selectbox("Cấp quyền truy cập", ["Operator", "Manager", "Admin"])
+
+                    submitted_user = st.form_submit_button("Tạo tài khoản")
+
+                    if submitted_user:
+
+                        if new_user == "" or new_pass == "":
+
+                            st.error("Vui lòng điền đủ Tên đăng nhập và Mật khẩu!")
+
+                        elif new_user in st.session_state["USER_DB"]:
+
+                            st.error("Tên đăng nhập này đã tồn tại!")
+
+                        else:
+
+                            # Lưu vào Database
+
+                            st.session_state["USER_DB"][new_user] = {
+
+                                "password": new_pass,
+
+                                "role": new_role,
+
+                                "name": new_name
+
+                            }
+
+                            st.success(f"Đã tạo thành công tài khoản: {new_user}")
+
+                            st.rerun() # Refresh lại trang để cập nhật bảng bên trái
+
+        # --- TAB 2: THÊM MÁY MÓC ---
+
+        with tab2:
+
+            col_mlist, col_madd = st.columns([6, 4])
+
+            with col_mlist:
+
+                st.subheader("Danh sách thiết bị")
+
+                st.dataframe(pd.DataFrame(st.session_state["MACHINE_DB"]), use_container_width=True)
+
+            with col_madd:
+
+                st.subheader("➕ Thêm máy mới")
+
+                with st.form("add_machine_form"):
+
+                    m_id = st.text_input("Mã máy (VD: M04)*")
+
+                    m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
+
+                    m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
+
+                    m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
+
+                    submitted_machine = st.form_submit_button("Thêm máy móc")
+
+                    if submitted_machine:
+
+                        if m_id == "" or m_name == "":
+
+                            st.error("Vui lòng điền đủ Mã máy và Tên máy!")
+
+                        else:
+
+                            # Kiểm tra xem mã máy đã tồn tại chưa
+
+                            if any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
+
+                                st.error("Mã máy này đã tồn tại!")
+
+                            else:
+
+                                st.session_state["MACHINE_DB"].append({
+
+                                    "id": m_id, "name": m_name, "line": m_line, "uph": m_uph
+
+                                })
+
+                                st.success("Thêm máy móc thành công!")
+
+                                st.rerun()
+ 
