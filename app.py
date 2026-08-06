@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from datetime import datetime, date
 
 # ==========================================
 # CẤU HÌNH TRANG
@@ -54,7 +55,7 @@ if "MACHINE_DB" not in st.session_state:
             "line": "G103", 
             "uph": 1200, 
             "url": "http://192.168.1.100/m01", 
-            "file_name": "data_m01.csv"
+            "template_file": "template_oee_m01.xlsx"
         },
         {
             "id": "M02", 
@@ -62,10 +63,11 @@ if "MACHINE_DB" not in st.session_state:
             "line": "G103", 
             "uph": 800, 
             "url": "http://192.168.1.101/m02", 
-            "file_name": "data_m02.xlsx"
+            "template_file": "template_oee_m02.csv"
         }
     ]
 
+# Mặc định Trang chủ luôn là Dashboard OEE
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
 
@@ -86,7 +88,7 @@ def login():
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
-                    st.session_state["selected_menu"] = "📊 Dashboard OEE"
+                    st.session_state["selected_menu"] = "📊 Dashboard OEE"  # Reset về trang chủ khi đăng nhập
                     st.rerun()
                 else:
                     st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
@@ -95,6 +97,7 @@ def logout():
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
+    st.session_state["selected_menu"] = "📊 Dashboard OEE"
     st.rerun()
 
 def go_home():
@@ -116,12 +119,15 @@ else:
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
         st.markdown("---")
         
-        # Danh sách menu dựa trên các mục được quyền truy cập của user
         user_pages = current_user.get("allowed_pages", ["📊 Dashboard OEE"])
         
-        # Đồng bộ lựa chọn menu với Radio Button
+        # Đảm bảo Dashboard OEE luôn đứng đầu danh sách
+        if "📊 Dashboard OEE" in user_pages:
+            user_pages.remove("📊 Dashboard OEE")
+            user_pages.insert(0, "📊 Dashboard OEE")
+
         if st.session_state["selected_menu"] not in user_pages:
-            st.session_state["selected_menu"] = user_pages[0]
+            st.session_state["selected_menu"] = "📊 Dashboard OEE"
             
         selected_menu = st.radio(
             "📌 ĐIỀU HƯỚNG HỆ THỐNG", 
@@ -134,20 +140,37 @@ else:
         st.markdown("---")
         st.button("Đăng xuất", on_click=logout, use_container_width=True)
 
-    # Nút Quay về Trang chủ dùng chung trên cùng màn hình
+    # Nút Quay về Trang chủ dùng chung trên đầu màn hình
     top_col1, top_col2 = st.columns([8, 2])
     with top_col2:
         if selected_menu != "📊 Dashboard OEE":
             st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
-    # TRANG 1: DASHBOARD OEE
+    # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "📊 Dashboard OEE":
         st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD V2 ACTIONABLE</h1>", unsafe_allow_html=True)
         st.markdown("---")
 
-        st.markdown("### 01. Equipment Health Overview")
+        # --- THANH TÌM KIẾM THEO NGÀY THÁNG VÀ SỐ LINE ---
+        st.subheader("🔍 Bộ Lọc Tìm Kiếm Dữ Liệu")
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([3, 3, 3, 2])
+        
+        with filter_col1:
+            start_date = st.date_input("Từ ngày", date(2026, 1, 1))
+        with filter_col2:
+            end_date = st.date_input("Đến ngày", date.today())
+        with filter_col3:
+            selected_line = st.selectbox("Chọn Số Chuyền (Line)", ["Tất cả Lines", "G103", "G104", "G111"])
+        with filter_col4:
+            st.write("") # Căn chỉnh lề
+            st.write("")
+            btn_search = st.button("🔎 Tìm kiếm", use_container_width=True)
+
+        st.markdown("---")
+
+        st.markdown(f"### 01. Equipment Health Overview ({selected_line} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         kpi1.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
         kpi2.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
@@ -185,7 +208,7 @@ else:
             st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
 
     # ---------------------------------------------------------
-    # TRANG 2: QUẢN LÝ MÁY MÓC (CÓ ĐƯỜNG DẪN & FILE XLSM/XLSB/CSV)
+    # TRANG 2: QUẢN LÝ MÁY MÓC (FILE MẪU CHUẨN ĐỂ PHÂN TÍCH)
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
@@ -204,41 +227,43 @@ else:
                         "Chuyền (Line)": m.get("line"),
                         "UPH (Cơ bản)": m.get("uph"),
                         "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
-                        "File dữ liệu đã nạp": m.get("file_name", "Chưa có file")
+                        "File mẫu dữ liệu chuẩn": m.get("template_file", "Chưa nạp file mẫu")
                     })
                 st.dataframe(pd.DataFrame(m_display), use_container_width=True)
             else:
                 st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
 
-        # TAB 2: THÊM MÁY MÓC MỚI
+        # TAB 2: THÊM MÁY MÓC MỚI VÀ FILE MẪU CHUẨN
         with tab_m_add:
-            st.subheader("➕ Thêm máy móc & cấu hình dữ liệu")
+            st.subheader("➕ Thêm máy móc & File dữ liệu mẫu để phần mềm phân tích")
             col1, col2 = st.columns(2)
             with col1:
                 m_id = st.text_input("Mã máy (VD: M04)*")
-                m_name = st.text_input("Tên máy (VD: Hipot)*")
+                m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
                 m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
             with col2:
                 m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
-                m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04 hoặc D:\\Data\\M04")
-                uploaded_file = st.file_uploader("Chọn file dữ liệu máy (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
+                m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04")
+                template_file = st.file_uploader("📁 Nạp File Mẫu Chuẩn (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
 
-            if st.button("💾 Lưu Máy Mới", use_container_width=True):
+            st.caption("💡 *Phần mềm sẽ sử dụng cấu trúc các cột trong file mẫu này để tự động đọc và trích xuất dữ liệu phân tích OEE.*")
+
+            if st.button("💾 Lưu Thiết Bị & File Mẫu", use_container_width=True):
                 if not m_id or not m_name:
                     st.error("Vui lòng điền đầy đủ Mã máy và Tên máy!")
                 elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
                     st.error(f"Mã máy `{m_id}` đã tồn tại!")
                 else:
-                    file_name = uploaded_file.name if uploaded_file else "Chưa có file"
+                    t_filename = template_file.name if template_file else "Chưa nạp file mẫu"
                     st.session_state["MACHINE_DB"].append({
                         "id": m_id,
                         "name": m_name,
                         "line": m_line,
                         "uph": m_uph,
                         "url": m_url if m_url else "Chưa cấu hình",
-                        "file_name": file_name
+                        "template_file": t_filename
                     })
-                    st.success(f"Thêm thành công thiết bị `{m_name}` ({m_id})!")
+                    st.success(f"Thêm thành công thiết bị `{m_name}` ({m_id}) cùng File mẫu chuẩn!")
                     st.rerun()
 
         # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
@@ -248,14 +273,13 @@ else:
                 selected_m_option = st.selectbox("Chọn máy cần thao tác", machine_options)
                 selected_m_id = selected_m_option.split(" - ")[0]
                 
-                # Tìm index của máy trong DB
                 m_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id), None)
                 cur_m = st.session_state["MACHINE_DB"][m_idx]
 
                 col_e_m, col_d_m = st.columns([7, 3])
 
                 with col_e_m:
-                    st.subheader(f"✏️ Cập nhật thông tin: {cur_m['id']}")
+                    st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
                     with st.form("form_edit_machine"):
                         e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""))
                         
@@ -266,20 +290,20 @@ else:
                         e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)))
                         e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""))
                         
-                        st.info(f"File hiện tại: **{cur_m.get('file_name', 'Chưa có file')}**")
-                        e_uploaded_file = st.file_uploader("Cập nhật file dữ liệu mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_file")
+                        st.info(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
+                        e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template")
 
-                        if st.form_submit_button("💾 Cập Nhật Máy Móc", use_container_width=True):
-                            new_file_name = e_uploaded_file.name if e_uploaded_file else cur_m.get("file_name", "Chưa có file")
+                        if st.form_submit_button("💾 Cập Nhật Thiết Bị", use_container_width=True):
+                            new_t_filename = e_template_file.name if e_template_file else cur_m.get("template_file", "Chưa có file mẫu")
                             st.session_state["MACHINE_DB"][m_idx] = {
                                 "id": selected_m_id,
                                 "name": e_m_name,
                                 "line": e_m_line,
                                 "uph": e_m_uph,
                                 "url": e_m_url,
-                                "file_name": new_file_name
+                                "template_file": new_t_filename
                             }
-                            st.success(f"Đã cập nhật máy `{selected_m_id}` thành công!")
+                            st.success(f"Đã cập nhật thiết bị `{selected_m_id}` thành công!")
                             st.rerun()
 
                 with col_d_m:
