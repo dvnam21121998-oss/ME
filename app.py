@@ -48,10 +48,26 @@ if "USER_DB" not in st.session_state:
 
 if "MACHINE_DB" not in st.session_state:
     st.session_state["MACHINE_DB"] = [
-        {"id": "M01", "name": "Máy dập Block 1", "line": "G103", "uph": 1200},
-        {"id": "M02", "name": "Máy Test Hipot", "line": "G103", "uph": 800},
-        {"id": "M03", "name": "Máy hàn tự động", "line": "G103", "uph": 600}
+        {
+            "id": "M01", 
+            "name": "Máy dập Block 1", 
+            "line": "G103", 
+            "uph": 1200, 
+            "url": "http://192.168.1.100/m01", 
+            "file_name": "data_m01.csv"
+        },
+        {
+            "id": "M02", 
+            "name": "Máy Test Hipot", 
+            "line": "G103", 
+            "uph": 800, 
+            "url": "http://192.168.1.101/m02", 
+            "file_name": "data_m02.xlsx"
+        }
     ]
+
+if "selected_menu" not in st.session_state:
+    st.session_state["selected_menu"] = "📊 Dashboard OEE"
 
 # ==========================================
 # CÁC HÀM XỬ LÝ ĐĂNG NHẬP / ĐĂNG XUẤT
@@ -70,6 +86,7 @@ def login():
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
+                    st.session_state["selected_menu"] = "📊 Dashboard OEE"
                     st.rerun()
                 else:
                     st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
@@ -78,6 +95,10 @@ def logout():
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
+    st.rerun()
+
+def go_home():
+    st.session_state["selected_menu"] = "📊 Dashboard OEE"
     st.rerun()
 
 # ==========================================
@@ -97,10 +118,27 @@ else:
         
         # Danh sách menu dựa trên các mục được quyền truy cập của user
         user_pages = current_user.get("allowed_pages", ["📊 Dashboard OEE"])
-        selected_menu = st.radio("📌 ĐIỀU HƯỚNG HỆ THỐNG", user_pages)
+        
+        # Đồng bộ lựa chọn menu với Radio Button
+        if st.session_state["selected_menu"] not in user_pages:
+            st.session_state["selected_menu"] = user_pages[0]
+            
+        selected_menu = st.radio(
+            "📌 ĐIỀU HƯỚNG HỆ THỐNG", 
+            user_pages, 
+            index=user_pages.index(st.session_state["selected_menu"]) if st.session_state["selected_menu"] in user_pages else 0,
+            key="menu_radio"
+        )
+        st.session_state["selected_menu"] = selected_menu
         
         st.markdown("---")
         st.button("Đăng xuất", on_click=logout, use_container_width=True)
+
+    # Nút Quay về Trang chủ dùng chung trên cùng màn hình
+    top_col1, top_col2 = st.columns([8, 2])
+    with top_col2:
+        if selected_menu != "📊 Dashboard OEE":
+            st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG 1: DASHBOARD OEE
@@ -147,13 +185,120 @@ else:
             st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
 
     # ---------------------------------------------------------
-    # TRANG 2: QUẢN LÝ TÀI KHOẢN (CÓ THÊM / SỬA / XÓA)
+    # TRANG 2: QUẢN LÝ MÁY MÓC (CÓ ĐƯỜNG DẪN & FILE XLSM/XLSB/CSV)
+    # ---------------------------------------------------------
+    elif selected_menu == "🏭 Quản Lý Máy Móc":
+        st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
+        st.markdown("---")
+
+        tab_m_list, tab_m_add, tab_m_edit_del = st.tabs(["📋 Danh Sách Thiết Bị", "➕ Thêm Thiết Bị Mới", "✏️ Chỉnh Sửa / Xóa Máy"])
+
+        # TAB 1: DANH SÁCH MÁY MÓC
+        with tab_m_list:
+            if st.session_state["MACHINE_DB"]:
+                m_display = []
+                for m in st.session_state["MACHINE_DB"]:
+                    m_display.append({
+                        "Mã máy": m.get("id"),
+                        "Tên thiết bị": m.get("name"),
+                        "Chuyền (Line)": m.get("line"),
+                        "UPH (Cơ bản)": m.get("uph"),
+                        "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
+                        "File dữ liệu đã nạp": m.get("file_name", "Chưa có file")
+                    })
+                st.dataframe(pd.DataFrame(m_display), use_container_width=True)
+            else:
+                st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
+
+        # TAB 2: THÊM MÁY MÓC MỚI
+        with tab_m_add:
+            st.subheader("➕ Thêm máy móc & cấu hình dữ liệu")
+            col1, col2 = st.columns(2)
+            with col1:
+                m_id = st.text_input("Mã máy (VD: M04)*")
+                m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
+                m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
+            with col2:
+                m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
+                m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04 hoặc D:\\Data\\M04")
+                uploaded_file = st.file_uploader("Chọn file dữ liệu máy (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
+
+            if st.button("💾 Lưu Máy Mới", use_container_width=True):
+                if not m_id or not m_name:
+                    st.error("Vui lòng điền đầy đủ Mã máy và Tên máy!")
+                elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
+                    st.error(f"Mã máy `{m_id}` đã tồn tại!")
+                else:
+                    file_name = uploaded_file.name if uploaded_file else "Chưa có file"
+                    st.session_state["MACHINE_DB"].append({
+                        "id": m_id,
+                        "name": m_name,
+                        "line": m_line,
+                        "uph": m_uph,
+                        "url": m_url if m_url else "Chưa cấu hình",
+                        "file_name": file_name
+                    })
+                    st.success(f"Thêm thành công thiết bị `{m_name}` ({m_id})!")
+                    st.rerun()
+
+        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
+        with tab_m_edit_del:
+            if st.session_state["MACHINE_DB"]:
+                machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
+                selected_m_option = st.selectbox("Chọn máy cần thao tác", machine_options)
+                selected_m_id = selected_m_option.split(" - ")[0]
+                
+                # Tìm index của máy trong DB
+                m_idx = next((i for i, m in enumerate(st.session_state["MACHINE_DB"]) if m["id"] == selected_m_id), None)
+                cur_m = st.session_state["MACHINE_DB"][m_idx]
+
+                col_e_m, col_d_m = st.columns([7, 3])
+
+                with col_e_m:
+                    st.subheader(f"✏️ Cập nhật thông tin: {cur_m['id']}")
+                    with st.form("form_edit_machine"):
+                        e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""))
+                        
+                        line_list = ["G103", "G104", "G111"]
+                        l_idx = line_list.index(cur_m.get("line")) if cur_m.get("line") in line_list else 0
+                        e_m_line = st.selectbox("Chuyền (Line)", line_list, index=l_idx)
+                        
+                        e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)))
+                        e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""))
+                        
+                        st.info(f"File hiện tại: **{cur_m.get('file_name', 'Chưa có file')}**")
+                        e_uploaded_file = st.file_uploader("Cập nhật file dữ liệu mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_file")
+
+                        if st.form_submit_button("💾 Cập Nhật Máy Móc", use_container_width=True):
+                            new_file_name = e_uploaded_file.name if e_uploaded_file else cur_m.get("file_name", "Chưa có file")
+                            st.session_state["MACHINE_DB"][m_idx] = {
+                                "id": selected_m_id,
+                                "name": e_m_name,
+                                "line": e_m_line,
+                                "uph": e_m_uph,
+                                "url": e_m_url,
+                                "file_name": new_file_name
+                            }
+                            st.success(f"Đã cập nhật máy `{selected_m_id}` thành công!")
+                            st.rerun()
+
+                with col_d_m:
+                    st.subheader("❌ Xóa thiết bị")
+                    st.warning(f"Thao tác này sẽ xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống.")
+                    if st.button("🗑️ Xóa Thiết Bị", type="primary", use_container_width=True):
+                        st.session_state["MACHINE_DB"].pop(m_idx)
+                        st.success(f"Đã xóa thành công máy `{selected_m_id}`!")
+                        st.rerun()
+            else:
+                st.info("Chưa có máy nào để chỉnh sửa hoặc xóa.")
+
+    # ---------------------------------------------------------
+    # TRANG 3: QUẢN LÝ TÀI KHOẢN (CÓ THÊM / SỬA / XÓA)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
-        # --- TẠO 3 TABS: DANH SÁCH / THÊM MỚI / CHỈNH SỬA & XÓA ---
         tab_list, tab_add, tab_edit_delete = st.tabs(["📋 Danh Sách Tài Khoản", "➕ Tạo Mới Tài Khoản", "✏️ Chỉnh Sửa / Xóa"])
 
         # TAB 1: DANH SÁCH
@@ -237,7 +382,6 @@ else:
                             "role": e_role,
                             "allowed_pages": e_pages
                         }
-                        # Nếu chỉnh sửa chính tài khoản đang đăng nhập, cập nhật lại session
                         if target_user == st.session_state["username"]:
                             st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
                         st.success(f"Đã cập nhật tài khoản `{target_user}` thành công!")
@@ -253,38 +397,3 @@ else:
                         del st.session_state["USER_DB"][target_user]
                         st.success(f"Đã xóa tài khoản `{target_user}`!")
                         st.rerun()
-
-    # ---------------------------------------------------------
-    # TRANG 3: QUẢN LÝ MÁY MÓC
-    # ---------------------------------------------------------
-    elif selected_menu == "🏭 Quản Lý Máy Móc":
-        st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
-        st.markdown("---")
-        col_mlist, col_madd = st.columns([6, 4])
-        with col_mlist:
-            st.subheader("📋 Danh sách thiết bị")
-            st.dataframe(pd.DataFrame(st.session_state["MACHINE_DB"]), use_container_width=True)
-
-        with col_madd:
-            st.subheader("➕ Thêm máy mới")
-            with st.form("add_machine_form"):
-                m_id = st.text_input("Mã máy (VD: M04)*")
-                m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
-                m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
-                m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
-                submitted_machine = st.form_submit_button("Thêm máy móc", use_container_width=True)
-                if submitted_machine:
-                    if m_id == "" or m_name == "":
-                        st.error("Vui lòng điền đủ Mã máy và Tên máy!")
-                    else:
-                        if any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
-                            st.error("Mã máy này đã tồn tại!")
-                        else:
-                            st.session_state["MACHINE_DB"].append({
-                                "id": m_id,
-                                "name": m_name,
-                                "line": m_line,
-                                "uph": m_uph
-                            })
-                            st.success("Thêm máy móc thành công!")
-                            st.rerun()
