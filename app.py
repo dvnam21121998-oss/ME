@@ -36,7 +36,7 @@ st.markdown("""
         border: 1px solid #38bdf8 !important;
         box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3) !important;
         transition: all 0.3s ease !important;
-        height: 48px !important;
+        height: 42px !important;
     }
     div[key="btn_home_top"] > button:hover {
         background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
@@ -49,6 +49,7 @@ st.markdown("""
         border: 1px solid #cbd5e1 !important;
         font-weight: 600 !important;
         border-radius: 8px !important;
+        height: 42px !important;
     }
     div[key="btn_back_nav"] > button:hover {
         background-color: #e2e8f0 !important;
@@ -138,7 +139,7 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
     return df_pareto, data_4m
 
 # ==========================================
-# KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
+# KHỞI TẠO CƠ SỞ DỮ LIỆU & LỊCH SỬ ĐIỀU HƯỚNG
 # ==========================================
 if "USER_DB" not in st.session_state:
     st.session_state["USER_DB"] = {
@@ -186,8 +187,11 @@ if "MACHINE_DB" not in st.session_state:
         }
     ]
 
+# Quản lý lịch sử trang
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+if "previous_menu" not in st.session_state:
+    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
@@ -206,6 +210,7 @@ def login():
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
                     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+                    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
                     st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
                     st.toast("🔔 Đăng nhập thành công!", icon="✅")
                     st.rerun()
@@ -217,10 +222,18 @@ def logout():
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
 
 def go_home():
+    st.session_state["previous_menu"] = st.session_state["selected_menu"]
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
     st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
+
+def go_back():
+    target_page = st.session_state.get("previous_menu", "🎛️ Dashboard OEE")
+    st.session_state["previous_menu"] = st.session_state["selected_menu"]
+    st.session_state["selected_menu"] = target_page
+    st.session_state["menu_radio"] = target_page
 
 # ==========================================
 # GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
@@ -251,16 +264,15 @@ else:
             user_pages, 
             key="menu_radio"
         )
-        st.session_state["selected_menu"] = selected_menu
         
+        # Cập nhật lịch sử trang khi chọn qua Sidebar
+        if selected_menu != st.session_state["selected_menu"]:
+            st.session_state["previous_menu"] = st.session_state["selected_menu"]
+            st.session_state["selected_menu"] = selected_menu
+            st.rerun()
+
         st.markdown("---")
         st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
-
-    # NÚT VỀ TRANG CHỦ NỔI BẬT TRÊN ĐẦU
-    if selected_menu != "🎛️ Dashboard OEE":
-        top_col1, top_col2 = st.columns([7, 3])
-        with top_col2:
-            st.container(key="btn_home_top").button("🏠 QUAY VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
@@ -442,10 +454,13 @@ else:
     # TRANG 2: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
-        # Nút Trở lại trang trước
-        nav_col1, nav_col2 = st.columns([2.5, 7.5])
-        with nav_col1:
-            st.container(key="btn_back_nav").button("⬅️ Trở lại trang trước", on_click=go_home, use_container_width=True)
+        # THANH ĐIỀU HƯỚNG TRÊN CÙNG TRANG CON
+        top_back_col1, top_back_col2 = st.columns([3, 7])
+        with top_back_col1:
+            prev_label = st.session_state.get('previous_menu', 'Trang trước')
+            st.container(key="btn_back_nav").button(f"⬅️ Trở lại ({prev_label})", on_click=go_back, use_container_width=True)
+        with top_back_col2:
+            st.container(key="btn_home_top").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
 
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
@@ -516,7 +531,7 @@ else:
             else:
                 st.error("🔒 Tài khoản của bạn **không có quyền Thêm mới** thiết bị!")
 
-        # TAB 3: CHỈNH SỬA MÁY MÓC (KIỂM TRA QUYỀN VÀ TRƯỜNG CỤ THỂ)
+        # TAB 3: CHỈNH SỬA MÁY MÓC
         with tab_m_edit:
             if "Chỉnh sửa" in user_m_perms:
                 if st.session_state["MACHINE_DB"]:
@@ -591,10 +606,13 @@ else:
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
-        # Nút Trở lại trang trước
-        nav_col1, nav_col2 = st.columns([2.5, 7.5])
-        with nav_col1:
-            st.container(key="btn_back_nav").button("⬅️ Trở lại trang trước", on_click=go_home, use_container_width=True)
+        # THANH ĐIỀU HƯỚNG TRÊN CÙNG TRANG CON
+        top_back_col1, top_back_col2 = st.columns([3, 7])
+        with top_back_col1:
+            prev_label = st.session_state.get('previous_menu', 'Trang trước')
+            st.container(key="btn_back_nav").button(f"⬅️ Trở lại ({prev_label})", on_click=go_back, use_container_width=True)
+        with top_back_col2:
+            st.container(key="btn_home_top").button("🏠 VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
 
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
