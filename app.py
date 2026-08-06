@@ -201,8 +201,20 @@ else:
     # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "📊 Dashboard OEE":
-        st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD V2 ACTIONABLE</h1>", unsafe_allow_html=True)
-        st.markdown("---")
+        # --- TIÊU ĐỀ CHÍNH NỔI BẬT ---
+        st.markdown("""
+            <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
+                        padding: 22px; 
+                        border-radius: 12px; 
+                        text-align: center; 
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
+                        margin-bottom: 25px; 
+                        border: 1px solid #334155;">
+                <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; letter-spacing: 1px; color: #38bdf8; text-transform: uppercase;">
+                    📊 MANAGEMENT DASHBOARD V2 ACTIONABLE
+                </h1>
+            </div>
+        """, unsafe_allow_html=True)
 
         # --- THANH TÌM KIẾM CẢI TIẾN: THEO MÃ/TÊN MÁY VÀ DÂY CHUYỀN ---
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
@@ -245,13 +257,37 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ ---
-        st.markdown(f"### 01. Equipment Health Overview ({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
+        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (ĐÓNG KHUNG & NỔI BẬT) ---
+        st.markdown(f"""
+            <div style="background-color: #f1f5f9; 
+                        border-left: 6px solid #0284c7; 
+                        padding: 12px 20px; 
+                        border-radius: 8px; 
+                        margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #0f172a; font-weight: 700; font-size: 1.35rem;">
+                    01. Equipment Health Overview 
+                    <span style="font-size: 0.95rem; font-weight: 500; color: #475569;">({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>
+                </h3>
+            </div>
+        """, unsafe_allow_html=True)
+
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
-        kpi2.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
-        kpi3.metric(label="MTBF (Chạy TB trước khi hỏng)", value="316 Phút", delta="Tốt", delta_color="normal")
-        kpi4.metric(label="MTTR (Thời gian sửa TB)", value="45.1 Phút", delta="+5 Phút", delta_color="inverse")
+
+        with kpi1:
+            with st.container(border=True):
+                st.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
+
+        with kpi2:
+            with st.container(border=True):
+                st.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
+
+        with kpi3:
+            with st.container(border=True):
+                st.metric(label="MTBF (Chạy TB trước khi hỏng)", value="316 Phút", delta="Tốt", delta_color="normal")
+
+        with kpi4:
+            with st.container(border=True):
+                st.metric(label="MTTR (Thời gian sửa TB)", value="45.1 Phút", delta="+5 Phút", delta_color="inverse")
 
         st.markdown("---")
 
@@ -497,7 +533,6 @@ else:
                 with col_b:
                     a_dept = st.text_input("Bộ phận", value="Sản Xuất")
                     a_pos = st.text_input("Chức vụ", value="Nhân Viên")
-                    # Tự nhập Role bằng st.text_input thay vì selectbox
                     a_role = st.text_input("Phân quyền (Role)*", value="Operator", placeholder="Tự nhập quyền (VD: Admin, Manager, Operator, Viewer...)")
 
                 st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
@@ -534,8 +569,6 @@ else:
                     e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
                     e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
                     e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
-                    
-                    # Tự nhập Role bằng st.text_input khi chỉnh sửa
                     e_role = st.text_input("Phân quyền (Role)", value=u_data.get("role", "Operator"))
 
                     st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
