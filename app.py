@@ -34,11 +34,16 @@ def load_sample_file_data(uploaded_file):
         st.error(f"Lỗi khi đọc file mẫu: {e}")
         return None
 
-def generate_mock_line_data(line_name, start_date, end_date):
-    """Tạo dữ liệu phân tích mô phỏng dựa trên Line và khoảng thời gian tìm kiếm"""
+def generate_mock_machine_data(machine_obj, start_date, end_date):
+    """Tạo dữ liệu phân tích mô phỏng dựa trên Máy cụ thể và khoảng thời gian tìm kiếm"""
     date_range = pd.date_range(start=start_date, end=end_date)
     data = []
-    np.random.seed(len(line_name) + int(start_date.strftime("%d%m%Y")))
+    
+    # Đặt seed theo id máy và ngày để dữ liệu cố định
+    seed_val = sum(ord(c) for c in machine_obj["id"]) + int(start_date.strftime("%d%m%Y"))
+    np.random.seed(seed_val)
+    
+    base_uph = machine_obj.get("uph", 1000)
     
     for d in date_range:
         availability = np.random.uniform(80, 98)
@@ -46,11 +51,13 @@ def generate_mock_line_data(line_name, start_date, end_date):
         quality = np.random.uniform(95, 99.9)
         oee = (availability * performance * quality) / 10000
         downtime = round(np.random.uniform(10, 120), 1)
-        uph = int(np.random.uniform(800, 1200))
+        uph = int(base_uph * np.random.uniform(0.85, 1.05))
         
         data.append({
             "Ngày": d.strftime("%Y-%m-%d"),
-            "Dây chuyền": line_name,
+            "Mã máy": machine_obj["id"],
+            "Tên máy": machine_obj["name"],
+            "Dây chuyền": machine_obj["line"],
             "Sẵn sàng (%)": round(availability, 1),
             "Hiệu suất (%)": round(performance, 1),
             "Chất lượng (%)": round(quality, 1),
@@ -182,37 +189,58 @@ else:
             st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
-    # TRANG CHỦ: DASHBOARD OEE (GIỮ NGUYÊN CỦ & THÊM TÍNH NĂNG MỚI)
+    # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "📊 Dashboard OEE":
         st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD V2 ACTIONABLE</h1>", unsafe_allow_html=True)
         st.markdown("---")
 
-        # --- THANH TÌM KIẾM THEO NGÀY THÁNG VÀ SỐ LINE ---
+        # --- THANH TÌM KIẾM CẢI TIẾN: THEO MÃ/TÊN MÁY VÀ DÂY CHUYỀN ---
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
-        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([3, 3, 3, 2])
         
-        existing_lines = list(set([m["line"] for m in st.session_state["MACHINE_DB"] if m.get("line")]))
-        line_options = ["Tất cả Lines"] + sorted(existing_lines)
+        # Tạo danh sách Máy và Line từ Cơ sở dữ liệu
+        machine_db = st.session_state["MACHINE_DB"]
+        existing_lines = sorted(list(set([m["line"] for m in machine_db if m.get("line")])))
+        
+        line_options = ["Tất cả Lines"] + existing_lines
+        machine_options = ["Tất cả Máy"] + [f"{m['id']} - {m['name']} (Line: {m['line']})" for m in machine_db]
+
+        filter_col1, filter_col2, filter_col3, filter_col4, filter_col5 = st.columns([2.5, 2.5, 2.5, 2.5, 2])
 
         with filter_col1:
             start_date = st.date_input("Từ ngày", date(2026, 8, 1))
         with filter_col2:
             end_date = st.date_input("Đến ngày", date.today())
         with filter_col3:
-            selected_line = st.selectbox("Chọn Dây Chuyền (Line)", line_options)
+            selected_line = st.selectbox("Dây Chuyền (Line)", line_options)
         with filter_col4:
+            selected_machine_str = st.selectbox("Mã / Tên Thiết Bị", machine_options)
+        with filter_col5:
             st.write("")
             st.write("")
-            btn_search = st.button("🔎 Tìm kiếm & Phân tích", use_container_width=True, type="primary")
+            btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
+
+        # --- LỌC DỮ LIỆU THEO ĐÚNG BỘ LỌC TÌM KIẾM ---
+        filtered_machines = machine_db.copy()
+
+        # Lọc theo Line nếu chọn Line cụ thể
+        if selected_line != "Tất cả Lines":
+            filtered_machines = [m for m in filtered_machines if m["line"] == selected_line]
+
+        # Lọc theo Máy nếu chọn Máy cụ thể
+        if selected_machine_str != "Tất cả Máy":
+            selected_m_id = selected_machine_str.split(" - ")[0]
+            filtered_machines = [m for m in filtered_machines if m["id"] == selected_m_id]
+
+        target_display_name = selected_machine_str if selected_machine_str != "Tất cả Máy" else (selected_line if selected_line != "Tất cả Lines" else "Toàn Nhà Máy")
 
         if btn_search:
-            st.toast(f"🔔 Đã cập nhật dữ liệu cho {selected_line}!", icon="📊")
+            st.toast(f"🔔 Đã cập nhật dữ liệu phân tích cho: {target_display_name}!", icon="📊")
 
         st.markdown("---")
 
-        # --- SECTION CỦ 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (4 METRICS CỦ) ---
-        st.markdown(f"### 01. Equipment Health Overview ({selected_line} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
+        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ ---
+        st.markdown(f"### 01. Equipment Health Overview ({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
         kpi1.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
         kpi2.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
@@ -221,7 +249,7 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION CỦ 2: 2 BIỂU ĐỒ CỦ (PARETO 80/20 & PHÂN LOẠI 4M) ---
+        # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M ---
         if current_user["role"] in ["Manager", "Admin"]:
             st.markdown("### 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M")
             pareto_col, pie_col = st.columns([6, 4])
@@ -248,22 +276,18 @@ else:
                 fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
                 st.plotly_chart(fig_pie, use_container_width=True)
         else:
-            st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
+            st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Operator. Chỉ xem được thông số tổng quan.")
 
         st.markdown("---")
 
-        # --- SECTION MỚI: PHÂN TÍCH THEO FILE MẪU (THEO NGÀY & TỔNG HỢP CẢ THÁNG) ---
-        has_any_template = any(m.get("has_file", False) for m in st.session_state["MACHINE_DB"])
-
-        if has_any_template:
-            st.markdown(f"### 03. Phân Tích Dữ Liệu Tự Động Từ File Mẫu Theo Line ({selected_line})")
-            
-            lines_to_analyze = existing_lines if selected_line == "Tất cả Lines" else [selected_line]
+        # --- SECTION 3: TỰ ĐỘNG PHÂN TÍCH THEO BỘ LỌC TÌM KIẾM MÁY/LINE ---
+        if filtered_machines:
+            st.markdown(f"### 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
             
             all_df_list = []
-            for line_item in lines_to_analyze:
-                df_line = generate_mock_line_data(line_item, start_date, end_date)
-                all_df_list.append(df_line)
+            for m_item in filtered_machines:
+                df_m = generate_mock_machine_data(m_item, start_date, end_date)
+                all_df_list.append(df_m)
             
             if all_df_list:
                 df_filtered = pd.concat(all_df_list, ignore_index=True)
@@ -271,22 +295,22 @@ else:
                 col_chart, col_table = st.columns([6, 4])
                 with col_chart:
                     fig_line = go.Figure()
-                    for line_item in lines_to_analyze:
-                        df_sub = df_filtered[df_filtered["Dây chuyền"] == line_item]
+                    for m_item in filtered_machines:
+                        df_sub = df_filtered[df_filtered["Mã máy"] == m_item["id"]]
                         fig_line.add_trace(go.Scatter(
                             x=df_sub["Ngày"], y=df_sub["OEE (%)"],
-                            mode='lines+markers', name=f"Line {line_item}"
+                            mode='lines+markers', name=f"{m_item['id']} - {m_item['name']}"
                         ))
-                    fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Tìm Kiếm", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
+                    fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Được Lọc", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
                     st.plotly_chart(fig_line, use_container_width=True)
 
                 with col_table:
-                    st.markdown("**📋 Bảng tổng hợp chi tiết theo ngày:**")
-                    st.dataframe(df_filtered[["Ngày", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
+                    st.markdown("**📋 Bảng tổng hợp chi tiết dữ liệu máy được chọn:**")
+                    st.dataframe(df_filtered[["Ngày", "Mã máy", "Tên máy", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
 
             st.markdown("---")
 
-            # BẢNG TỔNG HỢP CẢ THÁNG
+            # SECTION 4: BẢNG TỔNG HỢP CẢ THÁNG
             current_month = start_date.month
             current_year = start_date.year
             _, last_day = calendar.monthrange(current_year, current_month)
@@ -296,9 +320,9 @@ else:
             st.markdown(f"### 04. Biểu Đồ & Bảng Tổng Hợp Xu Hướng Cả Tháng {current_month}/{current_year}")
 
             month_df_list = []
-            for line_item in lines_to_analyze:
-                df_m = generate_mock_line_data(line_item, month_start, month_end)
-                month_df_list.append(df_m)
+            for m_item in filtered_machines:
+                df_m_month = generate_mock_machine_data(m_item, month_start, month_end)
+                month_df_list.append(df_m_month)
 
             if month_df_list:
                 df_month = pd.concat(month_df_list, ignore_index=True)
@@ -310,18 +334,20 @@ else:
 
                     fig_month.add_trace(go.Bar(x=df_month_avg["Ngày"], y=df_month_avg["Downtime (Phút)"], name="Tổng Downtime (Phút)", marker_color="#f43f5e"), secondary_y=False)
                     fig_month.add_trace(go.Scatter(x=df_month_avg["Ngày"], y=df_month_avg["OEE (%)"], name="OEE Trung Bình (%)", mode="lines+markers", line=dict(color="#0284c7", width=3)), secondary_y=True)
-                    fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Toàn Tháng {current_month}/{current_year}", hovermode="x unified")
+                    fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Cả Tháng {current_month}/{current_year}", hovermode="x unified")
                     st.plotly_chart(fig_month, use_container_width=True)
 
                 with m_col2:
-                    st.markdown(f"**📊 Bảng chỉ số trung bình tháng {current_month}:**")
-                    summary_month = df_month.groupby("Dây chuyền").agg({
+                    st.markdown(f"**📊 Bảng chỉ số trung bình theo máy trong tháng {current_month}:**")
+                    summary_month = df_month.groupby(["Mã máy", "Tên máy", "Dây chuyền"]).agg({
                         "OEE (%)": "mean",
                         "Sẵn sàng (%)": "mean",
                         "Downtime (Phút)": "sum",
                         "Sản lượng UPH": "mean"
                     }).reset_index().round(1)
                     st.dataframe(summary_month, use_container_width=True, height=320)
+        else:
+            st.warning("⚠️ Không tìm thấy thiết bị nào phù hợp với bộ lọc đã chọn!")
 
     # ---------------------------------------------------------
     # TRANG 2: QUẢN LÝ MÁY MÓC
