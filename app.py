@@ -155,7 +155,6 @@ def logout():
 
 def go_home():
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    # Đồng bộ trực tiếp state của menu radio ở sidebar
     st.session_state["menu_radio"] = "📊 Dashboard OEE"
 
 # ==========================================
@@ -257,7 +256,7 @@ else:
         st.markdown("---")
 
         # --- SECTION 2: BIỂU ĐỒ PARETO 80/20 & PHÂN LOẠI 4M ---
-        if current_user["role"] in ["Manager", "Admin"]:
+        if str(current_user.get("role", "")).lower() in ["manager", "admin"]:
             st.markdown("### 02. Pareto Downtime (80/20) & Phân loại Nguyên nhân 4M")
             pareto_col, pie_col = st.columns([6, 4])
             
@@ -481,7 +480,7 @@ else:
                     "Họ và Tên": uinfo.get("name", ""),
                     "Bộ phận": uinfo.get("department", ""),
                     "Chức vụ": uinfo.get("position", ""),
-                    "Phân quyền": uinfo.get("role", ""),
+                    "Phân quyền (Role)": uinfo.get("role", ""),
                     "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
@@ -498,7 +497,8 @@ else:
                 with col_b:
                     a_dept = st.text_input("Bộ phận", value="Sản Xuất")
                     a_pos = st.text_input("Chức vụ", value="Nhân Viên")
-                    a_role = st.selectbox("Cấp độ hệ thống", ["Operator", "Manager", "Admin"])
+                    # Tự nhập Role bằng st.text_input thay vì selectbox
+                    a_role = st.text_input("Phân quyền (Role)*", value="Operator", placeholder="Tự nhập quyền (VD: Admin, Manager, Operator, Viewer...)")
 
                 st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
                 a_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=["📊 Dashboard OEE"])
@@ -515,7 +515,7 @@ else:
                             "name": a_fullname,
                             "department": a_dept,
                             "position": a_pos,
-                            "role": a_role,
+                            "role": a_role.strip(),
                             "allowed_pages": a_pages
                         }
                         show_popup_message("TẠO TÀI KHOẢN THÀNH CÔNG", f"Đã khởi tạo thành công tài khoản **{a_username}**!", icon="👤")
@@ -535,8 +535,8 @@ else:
                     e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
                     e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
                     
-                    role_idx = ["Operator", "Manager", "Admin"].index(u_data.get("role", "Operator")) if u_data.get("role") in ["Operator", "Manager", "Admin"] else 0
-                    e_role = st.selectbox("Cấp độ hệ thống", ["Operator", "Manager", "Admin"], index=role_idx)
+                    # Tự nhập Role bằng st.text_input khi chỉnh sửa
+                    e_role = st.text_input("Phân quyền (Role)", value=u_data.get("role", "Operator"))
 
                     st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
                     e_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
@@ -548,7 +548,7 @@ else:
                             "name": e_fullname,
                             "department": e_dept,
                             "position": e_pos,
-                            "role": e_role,
+                            "role": e_role.strip(),
                             "allowed_pages": e_pages
                         }
                         if target_user == st.session_state["username"]:
