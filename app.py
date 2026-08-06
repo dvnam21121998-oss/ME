@@ -25,6 +25,38 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
+# CSS TÙY CHỈNH NÚT QUAY VỀ TRANG CHỦ & NÚT TRỞ LẠI
+st.markdown("""
+    <style>
+    div[key="btn_home_top"] > button {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+        color: white !important;
+        font-weight: bold !important;
+        border-radius: 10px !important;
+        border: 1px solid #38bdf8 !important;
+        box-shadow: 0 4px 10px rgba(14, 165, 233, 0.3) !important;
+        transition: all 0.3s ease !important;
+        height: 48px !important;
+    }
+    div[key="btn_home_top"] > button:hover {
+        background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
+        box-shadow: 0 6px 15px rgba(14, 165, 233, 0.5) !important;
+        transform: translateY(-2px);
+    }
+    div[key="btn_back_nav"] > button {
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        border: 1px solid #cbd5e1 !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+    }
+    div[key="btn_back_nav"] > button:hover {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # ==========================================
 # HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
 # ==========================================
@@ -224,11 +256,11 @@ else:
         st.markdown("---")
         st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
 
-    # Nút Quay về Trang chủ
-    top_col1, top_col2 = st.columns([8, 2])
-    with top_col2:
-        if selected_menu != "🎛️ Dashboard OEE":
-            st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
+    # NÚT VỀ TRANG CHỦ NỔI BẬT TRÊN ĐẦU
+    if selected_menu != "🎛️ Dashboard OEE":
+        top_col1, top_col2 = st.columns([7, 3])
+        with top_col2:
+            st.container(key="btn_home_top").button("🏠 QUAY VỀ TRANG CHỦ DASHBOARD", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
@@ -410,6 +442,11 @@ else:
     # TRANG 2: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
+        # Nút Trở lại trang trước
+        nav_col1, nav_col2 = st.columns([2.5, 7.5])
+        with nav_col1:
+            st.container(key="btn_back_nav").button("⬅️ Trở lại trang trước", on_click=go_home, use_container_width=True)
+
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
 
@@ -554,6 +591,11 @@ else:
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
+        # Nút Trở lại trang trước
+        nav_col1, nav_col2 = st.columns([2.5, 7.5])
+        with nav_col1:
+            st.container(key="btn_back_nav").button("⬅️ Trở lại trang trước", on_click=go_home, use_container_width=True)
+
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
@@ -577,7 +619,7 @@ else:
                     "Bộ phận": uinfo.get("department", ""),
                     "Chức vụ": uinfo.get("position", ""),
                     "Phân quyền (Role)": uinfo.get("role", ""),
-                    "Quyên máy móc": m_perms_str,
+                    "Quyền máy móc": m_perms_str,
                     "Các mục được sửa": edit_fields_str,
                     "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
                 })
