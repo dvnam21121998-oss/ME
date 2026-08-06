@@ -18,6 +18,16 @@ ALL_FEATURES = [
 ]
 
 # ==========================================
+# HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
+# ==========================================
+@st.dialog("🔔 THÔNG BÁO HỆ THỐNG")
+def show_popup_message(title, message, icon="ℹ️"):
+    st.markdown(f"### {icon} {title}")
+    st.write(message)
+    if st.button("Đóng", use_container_width=True, type="primary"):
+        st.rerun()
+
+# ==========================================
 # HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU
 # ==========================================
 def load_sample_file_data(uploaded_file):
@@ -39,7 +49,6 @@ def generate_mock_machine_data(machine_obj, start_date, end_date):
     date_range = pd.date_range(start=start_date, end=end_date)
     data = []
     
-    # Đặt seed theo id máy và ngày để dữ liệu cố định
     seed_val = sum(ord(c) for c in machine_obj["id"]) + int(start_date.strftime("%d%m%Y"))
     np.random.seed(seed_val)
     
@@ -198,7 +207,6 @@ else:
         # --- THANH TÌM KIẾM CẢI TIẾN: THEO MÃ/TÊN MÁY VÀ DÂY CHUYỀN ---
         st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
         
-        # Tạo danh sách Máy và Line từ Cơ sở dữ liệu
         machine_db = st.session_state["MACHINE_DB"]
         existing_lines = sorted(list(set([m["line"] for m in machine_db if m.get("line")])))
         
@@ -220,14 +228,12 @@ else:
             st.write("")
             btn_search = st.button("🔎 Phân tích", use_container_width=True, type="primary")
 
-        # --- LỌC DỮ LIỆU THEO ĐÚNG BỘ LỌC TÌM KIẾM ---
+        # Lọc dữ liệu theo đối tượng chọn
         filtered_machines = machine_db.copy()
 
-        # Lọc theo Line nếu chọn Line cụ thể
         if selected_line != "Tất cả Lines":
             filtered_machines = [m for m in filtered_machines if m["line"] == selected_line]
 
-        # Lọc theo Máy nếu chọn Máy cụ thể
         if selected_machine_str != "Tất cả Máy":
             selected_m_id = selected_machine_str.split(" - ")[0]
             filtered_machines = [m for m in filtered_machines if m["id"] == selected_m_id]
@@ -235,7 +241,7 @@ else:
         target_display_name = selected_machine_str if selected_machine_str != "Tất cả Máy" else (selected_line if selected_line != "Tất cả Lines" else "Toàn Nhà Máy")
 
         if btn_search:
-            st.toast(f"🔔 Đã cập nhật dữ liệu phân tích cho: {target_display_name}!", icon="📊")
+            show_popup_message("CẬP NHẬT DỮ LIỆU", f"Đã tải thành công dữ liệu phân tích cho: **{target_display_name}**!", icon="📊")
 
         st.markdown("---")
 
@@ -280,7 +286,7 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION 3: TỰ ĐỘNG PHÂN TÍCH THEO BỘ LỌC TÌM KIẾM MÁY/LINE ---
+        # --- SECTION 3: PHÂN TÍCH TỰ ĐỘNG ---
         if filtered_machines:
             st.markdown(f"### 03. Phân Tích Xu Hướng Dữ Liệu Tự Động Từng Máy ({target_display_name})")
             
@@ -375,7 +381,7 @@ else:
             else:
                 st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
 
-        # TAB 2: THÊM MÁY MÓC MỚI
+        # TAB 2: THÊM MÁY MÓC MỚI (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
         with tab_m_add:
             st.subheader("➕ Thêm máy móc & Nạp file dữ liệu mẫu")
             col1, col2 = st.columns(2)
@@ -390,9 +396,9 @@ else:
 
             if st.button("💾 Lưu Thiết Bị Mới", use_container_width=True, type="primary"):
                 if not m_id or not m_name or not m_line:
-                    st.error("Vui lòng điền đầy đủ Mã máy, Tên máy và Dây chuyền (Line)!")
+                    show_popup_message("LỖI NHẬP DỮ LIỆU", "Vui lòng điền đầy đủ **Mã máy**, **Tên máy** và **Dây chuyền (Line)**!", icon="❌")
                 elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
-                    st.error(f"Mã máy `{m_id}` đã tồn tại trong hệ thống!")
+                    show_popup_message("TRÙNG MÃ MÁY", f"Mã máy `{m_id}` đã tồn tại trên hệ thống!", icon="⚠️")
                 else:
                     t_filename = template_file.name if template_file else "Chưa nạp file mẫu"
                     has_f = True if template_file else False
@@ -406,11 +412,9 @@ else:
                         "template_file": t_filename,
                         "has_file": has_f
                     })
-                    st.toast(f"✅ Đã thêm mới thành công máy {m_name} ({m_id})!", icon="🎉")
-                    st.success(f"🎉 **Thành công:** Đã lưu thiết bị `{m_name}` vào Dây chuyền `{m_line}`!")
-                    st.rerun()
+                    show_popup_message("TẠO MỚI THÀNH CÔNG", f"Đã lưu thành công thiết bị **{m_name} ({m_id})** vào Line **{m_line}**!", icon="🎉")
 
-        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
+        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
         with tab_m_edit_del:
             if st.session_state["MACHINE_DB"]:
                 machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
@@ -446,18 +450,14 @@ else:
                                 "template_file": new_t_filename,
                                 "has_file": has_f
                             }
-                            st.toast(f"💾 Đã lưu thay đổi cho máy {selected_m_id}!", icon="✅")
-                            st.success(f"Cập nhật thông tin máy `{selected_m_id}` thành công!")
-                            st.rerun()
+                            show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho thiết bị **{selected_m_id}**!", icon="💾")
 
                 with col_d_m:
                     st.subheader("❌ Xóa thiết bị")
                     st.warning(f"Thao tác này sẽ xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống.")
                     if st.button("🗑️ Xóa Thiết Bị", type="primary", use_container_width=True):
                         st.session_state["MACHINE_DB"].pop(m_idx)
-                        st.toast(f"🗑️ Đã xóa máy {selected_m_id} khỏi hệ thống!", icon="⚠️")
-                        st.success(f"Đã xóa thành công máy `{selected_m_id}`!")
-                        st.rerun()
+                        show_popup_message("ĐÃ XÓA THIẾT BỊ", f"Đã xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống!", icon="🗑️")
             else:
                 st.info("Chưa có máy nào để chỉnh sửa hoặc xóa.")
 
@@ -485,7 +485,7 @@ else:
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
 
-        # TAB 2: TẠO MỚI
+        # TAB 2: TẠO MỚI TÀI KHOẢN (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
         with tab_add:
             with st.form("form_add_user"):
                 st.subheader("Thêm tài khoản mới vào hệ thống")
@@ -505,9 +505,9 @@ else:
                 btn_add = st.form_submit_button("➕ Tạo Tài Khoản Mới", use_container_width=True)
                 if btn_add:
                     if not a_username or not a_password:
-                        st.error("Vui lòng điền Tên tài khoản và Mật khẩu!")
+                        show_popup_message("LỖI ĐĂNG KÝ", "Vui lòng điền **Tên tài khoản** và **Mật khẩu**!", icon="❌")
                     elif a_username in st.session_state["USER_DB"]:
-                        st.error("Tài khoản này đã tồn tại trên hệ thống!")
+                        show_popup_message("TÀI KHOẢN ĐÃ TỒN TẠI", f"Tài khoản `{a_username}` đã tồn tại trên hệ thống!", icon="⚠️")
                     else:
                         st.session_state["USER_DB"][a_username] = {
                             "password": a_password,
@@ -517,11 +517,9 @@ else:
                             "role": a_role,
                             "allowed_pages": a_pages
                         }
-                        st.toast(f"🎉 Đã tạo thành công tài khoản {a_username}!", icon="👤")
-                        st.success(f"Tạo thành công tài khoản `{a_username}`!")
-                        st.rerun()
+                        show_popup_message("TẠO TÀI KHOẢN THÀNH CÔNG", f"Đã khởi tạo thành công tài khoản **{a_username}**!", icon="👤")
 
-        # TAB 3: CHỈNH SỬA & XÓA
+        # TAB 3: CHỈNH SỬA & XÓA TÀI KHOẢN (CÓ POPUP CỬA SỔ GIỮA MÀN HÌNH)
         with tab_edit_delete:
             target_user = st.selectbox("Chọn tài khoản cần thao tác", list(st.session_state["USER_DB"].keys()))
             u_data = st.session_state["USER_DB"][target_user]
@@ -554,18 +552,14 @@ else:
                         }
                         if target_user == st.session_state["username"]:
                             st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
-                        st.toast(f"💾 Đã lưu thay đổi cho tài khoản {target_user}!", icon="✅")
-                        st.success(f"Đã cập nhật tài khoản `{target_user}` thành công!")
-                        st.rerun()
+                        show_popup_message("CẬP NHẬT THÀNH CÔNG", f"Đã lưu các thay đổi cho tài khoản **{target_user}**!", icon="💾")
 
             with col_del:
                 st.subheader("❌ Xóa tài khoản")
                 st.warning(f"Thao tác này không thể hoàn tác với tài khoản **{target_user}**.")
                 if st.button("🗑️ Xóa Tài Khoản", type="primary", use_container_width=True):
                     if target_user == st.session_state["username"]:
-                        st.error("Bạn không thể xóa tài khoản hiện tại đang đăng nhập!")
+                        show_popup_message("KHÔNG THỂ XÓA", "Bạn không thể xóa tài khoản hiện tại đang đăng nhập!", icon="🚫")
                     else:
                         del st.session_state["USER_DB"][target_user]
-                        st.toast(f"🗑️ Đã xóa tài khoản {target_user}!", icon="⚠️")
-                        st.success(f"Đã xóa tài khoản `{target_user}`!")
-                        st.rerun()
+                        show_popup_message("ĐÃ XÓA TÀI KHOẢN", f"Đã xóa tài khoản **{target_user}** khỏi hệ thống!", icon="🗑️")
