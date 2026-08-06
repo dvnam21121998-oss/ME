@@ -141,6 +141,7 @@ def login():
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
                     st.session_state["selected_menu"] = "📊 Dashboard OEE"
+                    st.session_state["menu_radio"] = "📊 Dashboard OEE"
                     st.toast("🔔 Đăng nhập thành công!", icon="✅")
                     st.rerun()
                 else:
@@ -151,11 +152,11 @@ def logout():
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    # Streamlit tự động rerun sau khi hàm callback hoàn tất
 
 def go_home():
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
-    # Streamlit tự động rerun sau khi hàm callback hoàn tất
+    # Đồng bộ trực tiếp state của menu radio ở sidebar
+    st.session_state["menu_radio"] = "📊 Dashboard OEE"
 
 # ==========================================
 # GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
@@ -179,11 +180,11 @@ else:
 
         if st.session_state["selected_menu"] not in user_pages:
             st.session_state["selected_menu"] = "📊 Dashboard OEE"
-            
+            st.session_state["menu_radio"] = "📊 Dashboard OEE"
+
         selected_menu = st.radio(
             "📌 ĐIỀU HƯỚNG HỆ THỐNG", 
             user_pages, 
-            index=user_pages.index(st.session_state["selected_menu"]) if st.session_state["selected_menu"] in user_pages else 0,
             key="menu_radio"
         )
         st.session_state["selected_menu"] = selected_menu
