@@ -25,24 +25,6 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
-# CSS TÙY CHỈNH NÚT TRỞ LẠI
-st.markdown("""
-    <style>
-    div[key="btn_back_nav"] > button {
-        background-color: #f1f5f9 !important;
-        color: #334155 !important;
-        border: 1px solid #cbd5e1 !important;
-        font-weight: 600 !important;
-        border-radius: 8px !important;
-        height: 42px !important;
-    }
-    div[key="btn_back_nav"] > button:hover {
-        background-color: #e2e8f0 !important;
-        color: #0f172a !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
 # ==========================================
 # HÀM HỖ TRỢ HIỂN THỊ DIALOG/MODAL GIỮA MÀN HÌNH
 # ==========================================
@@ -124,7 +106,7 @@ def generate_mock_pareto_4m_data(machine_ids, start_date, end_date):
     return df_pareto, data_4m
 
 # ==========================================
-# KHỞI TẠO CƠ SỞ DỮ LIỆU & LỊCH SỬ ĐIỀU HƯỚNG
+# KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
 # ==========================================
 if "USER_DB" not in st.session_state:
     st.session_state["USER_DB"] = {
@@ -172,11 +154,8 @@ if "MACHINE_DB" not in st.session_state:
         }
     ]
 
-# Quản lý lịch sử trang
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-if "previous_menu" not in st.session_state:
-    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
@@ -195,7 +174,6 @@ def login():
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
                     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-                    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
                     st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
                     st.toast("🔔 Đăng nhập thành công!", icon="✅")
                     st.rerun()
@@ -207,13 +185,10 @@ def logout():
     st.session_state.pop("username", None)
     st.session_state.pop("user_info", None)
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-    st.session_state["previous_menu"] = "🎛️ Dashboard OEE"
 
-def go_back():
-    target_page = st.session_state.get("previous_menu", "🎛️ Dashboard OEE")
-    st.session_state["previous_menu"] = st.session_state["selected_menu"]
-    st.session_state["selected_menu"] = target_page
-    st.session_state["menu_radio"] = target_page
+def go_home():
+    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+    st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
 
 # ==========================================
 # GIAO DIỆN CHÍNH KHI ĐÃ ĐĂNG NHẬP
@@ -244,15 +219,16 @@ else:
             user_pages, 
             key="menu_radio"
         )
+        st.session_state["selected_menu"] = selected_menu
         
-        # Cập nhật lịch sử trang khi chọn qua Sidebar
-        if selected_menu != st.session_state["selected_menu"]:
-            st.session_state["previous_menu"] = st.session_state["selected_menu"]
-            st.session_state["selected_menu"] = selected_menu
-            st.rerun()
-
         st.markdown("---")
         st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
+
+    # Nút Quay về Trang chủ
+    top_col1, top_col2 = st.columns([8, 2])
+    with top_col2:
+        if selected_menu != "🎛️ Dashboard OEE":
+            st.button("🏠 Quay về Trang chủ", on_click=go_home, use_container_width=True)
 
     # ---------------------------------------------------------
     # TRANG CHỦ: DASHBOARD OEE
@@ -434,10 +410,6 @@ else:
     # TRANG 2: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
-        # NÚT TRỞ LẠI Ở ĐẦU TRANG CON
-        prev_label = st.session_state.get('previous_menu', 'Trang trước')
-        st.container(key="btn_back_nav").button(f"⬅️ Trở lại ({prev_label})", on_click=go_back, use_container_width=True)
-
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
         st.markdown("---")
 
@@ -507,7 +479,7 @@ else:
             else:
                 st.error("🔒 Tài khoản của bạn **không có quyền Thêm mới** thiết bị!")
 
-        # TAB 3: CHỈNH SỬA MÁY MÓC
+        # TAB 3: CHỈNH SỬA MÁY MÓC (KIỂM TRA QUYỀN VÀ TRƯỜNG CỤ THỂ)
         with tab_m_edit:
             if "Chỉnh sửa" in user_m_perms:
                 if st.session_state["MACHINE_DB"]:
@@ -582,10 +554,6 @@ else:
     # TRANG 3: QUẢN LÝ TÀI KHOẢN
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
-        # NÚT TRỞ LẠI Ở ĐẦU TRANG CON
-        prev_label = st.session_state.get('previous_menu', 'Trang trước')
-        st.container(key="btn_back_nav").button(f"⬅️ Trở lại ({prev_label})", on_click=go_back, use_container_width=True)
-
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
 
@@ -609,7 +577,7 @@ else:
                     "Bộ phận": uinfo.get("department", ""),
                     "Chức vụ": uinfo.get("position", ""),
                     "Phân quyền (Role)": uinfo.get("role", ""),
-                    "Quyền máy móc": m_perms_str,
+                    "Quyên máy móc": m_perms_str,
                     "Các mục được sửa": edit_fields_str,
                     "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
                 })
