@@ -257,19 +257,8 @@ else:
 
         st.markdown("---")
 
-        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (ĐÓNG KHUNG & NỔI BẬT) ---
-        st.markdown(f"""
-            <div style="background-color: #f1f5f9; 
-                        border-left: 6px solid #0284c7; 
-                        padding: 12px 20px; 
-                        border-radius: 8px; 
-                        margin-bottom: 20px;">
-                <h3 style="margin: 0; color: #0f172a; font-weight: 700; font-size: 1.35rem;">
-                    01. Equipment Health Overview 
-                    <span style="font-size: 0.95rem; font-weight: 500; color: #475569;">({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>
-                </h3>
-            </div>
-        """, unsafe_allow_html=True)
+        # --- SECTION 1: TỔNG QUAN CHỈ SỐ SỨC KHỎE THIẾT BỊ (LOẠI BỎ KHUNG NỀN TRẮNG) ---
+        st.markdown(f"### 01. Equipment Health Overview <span style='font-size: 1rem; font-weight: normal; color: #64748b;'>({target_display_name} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})</span>", unsafe_allow_html=True)
 
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
