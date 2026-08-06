@@ -85,7 +85,7 @@ else:
         st.success(f"👋 Xin chào, {st.session_state['name']}!")
 st.info(f"Vai trò: **{st.session_state['role']}**")
 
-        st.button("Đăng xuất", on_click=logout)
+st.button("Đăng xuất", on_click=logout)
 
     st.title("📊 Hệ Thống Quản Lý OEE Nhà Máy")
 
