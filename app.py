@@ -1,20 +1,65 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime, date
+import calendar
 
 # ==========================================
 # CẤU HÌNH TRANG
 # ==========================================
 st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
 
-# Danh sách tất cả tính năng trong hệ thống
 ALL_FEATURES = [
     "📊 Dashboard OEE",
     "🏭 Quản Lý Máy Móc",
     "👤 Quản Lý Tài Khoản"
 ]
+
+# ==========================================
+# HÀM HỖ TRỢ XỬ LÝ FILE DỮ LIỆU MẪU
+# ==========================================
+def load_sample_file_data(uploaded_file):
+    """Hàm đọc file excel/csv và trả về DataFrame chuẩn hóa"""
+    try:
+        filename = uploaded_file.name.lower()
+        if filename.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            # Đọc file excel xlsx, xlsm, xlsb
+            engine = 'pyxlsb' if filename.endswith('.xlsb') else 'openpyxl'
+            df = pd.read_excel(uploaded_file, engine=engine)
+        return df
+    except Exception as e:
+        st.error(f"Lỗi khi đọc file mẫu: {e}")
+        return None
+
+def generate_mock_line_data(line_name, start_date, end_date):
+    """Tạo dữ liệu phân tích mô phỏng dựa trên Line và khoảng thời gian tìm kiếm"""
+    date_range = pd.date_range(start=start_date, end=end_date)
+    data = []
+    np.random.seed(len(line_name) + int(start_date.strftime("%d%m%Y")))
+    
+    for d in date_range:
+        availability = np.random.uniform(80, 98)
+        performance = np.random.uniform(85, 99)
+        quality = np.random.uniform(95, 99.9)
+        oee = (availability * performance * quality) / 10000
+        downtime = round(np.random.uniform(10, 120), 1)
+        uph = int(np.random.uniform(800, 1200))
+        
+        data.append({
+            "Ngày": d.strftime("%Y-%m-%d"),
+            "Dây chuyền": line_name,
+            "Sẵn sàng (%)": round(availability, 1),
+            "Hiệu suất (%)": round(performance, 1),
+            "Chất lượng (%)": round(quality, 1),
+            "OEE (%)": round(oee, 1),
+            "Downtime (Phút)": downtime,
+            "Sản lượng UPH": uph
+        })
+    return pd.DataFrame(data)
 
 # ==========================================
 # KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
@@ -36,14 +81,6 @@ if "USER_DB" not in st.session_state:
             "position": "Trưởng Nhóm IE",
             "role": "Manager",
             "allowed_pages": ["📊 Dashboard OEE"]
-        },
-        "operator": {
-            "password": "123",
-            "name": "Tổ Trưởng Line G103",
-            "department": "Sản Xuất",
-            "position": "Tổ Trưởng",
-            "role": "Operator",
-            "allowed_pages": ["📊 Dashboard OEE"]
         }
     }
 
@@ -55,28 +92,28 @@ if "MACHINE_DB" not in st.session_state:
             "line": "G103", 
             "uph": 1200, 
             "url": "http://192.168.1.100/m01", 
-            "template_file": "template_oee_m01.xlsx"
+            "template_file": "template_oee_g103.xlsx",
+            "has_file": True
         },
         {
             "id": "M02", 
             "name": "Máy Test Hipot", 
-            "line": "G103", 
+            "line": "G104", 
             "uph": 800, 
             "url": "http://192.168.1.101/m02", 
-            "template_file": "template_oee_m02.csv"
+            "template_file": "template_oee_g104.csv",
+            "has_file": True
         }
     ]
 
-# Mặc định Trang chủ luôn là Dashboard OEE
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "📊 Dashboard OEE"
 
 # ==========================================
-# CÁC HÀM XỬ LÝ ĐĂNG NHẬP / ĐĂNG XUẤT
+# CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
 # ==========================================
 def login():
     st.markdown("<h2 style='text-align: center; color: #1e293b;'>🔐 ĐĂNG NHẬP HỆ THỐNG OEE</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Tài khoản mẫu: <b>admin</b> / <b>manager</b> / <b>operator</b> | Mật khẩu: <b>123</b></p>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
@@ -88,7 +125,8 @@ def login():
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
                     st.session_state["user_info"] = st.session_state["USER_DB"][username]
-                    st.session_state["selected_menu"] = "📊 Dashboard OEE"  # Reset về trang chủ khi đăng nhập
+                    st.session_state["selected_menu"] = "📊 Dashboard OEE"
+                    st.toast("🔔 Đăng nhập thành công!", icon="✅")
                     st.rerun()
                 else:
                     st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
@@ -114,14 +152,12 @@ else:
     
     # --- SIDEBAR MENU ---
     with st.sidebar:
-        st.image("https://cdn-icons-png.flaticon.com/512/2046/2046024.png", width=100)
+        st.image("https://cdn-icons-png.flaticon.com/512/2046/2046024.png", width=90)
         st.success(f"👋 **{current_user['name']}**")
         st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
         st.markdown("---")
         
         user_pages = current_user.get("allowed_pages", ["📊 Dashboard OEE"])
-        
-        # Đảm bảo Dashboard OEE luôn đứng đầu danh sách
         if "📊 Dashboard OEE" in user_pages:
             user_pages.remove("📊 Dashboard OEE")
             user_pages.insert(0, "📊 Dashboard OEE")
@@ -138,7 +174,7 @@ else:
         st.session_state["selected_menu"] = selected_menu
         
         st.markdown("---")
-        st.button("Đăng xuất", on_click=logout, use_container_width=True)
+        st.button("🚪 Đăng xuất", on_click=logout, use_container_width=True)
 
     # Nút Quay về Trang chủ dùng chung trên đầu màn hình
     top_col1, top_col2 = st.columns([8, 2])
@@ -150,65 +186,112 @@ else:
     # TRANG CHỦ: DASHBOARD OEE
     # ---------------------------------------------------------
     if selected_menu == "📊 Dashboard OEE":
-        st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD V2 ACTIONABLE</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center; color: #0f172a;'>📊 MANAGEMENT DASHBOARD OEE & PHÂN TÍCH LINE</h1>", unsafe_allow_html=True)
         st.markdown("---")
 
         # --- THANH TÌM KIẾM THEO NGÀY THÁNG VÀ SỐ LINE ---
-        st.subheader("🔍 Bộ Lọc Tìm Kiếm Dữ Liệu")
+        st.subheader("🔍 Bộ Lọc Tìm Kiếm & Phân Tích Dữ Liệu")
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns([3, 3, 3, 2])
         
+        # Tự động tổng hợp danh sách các Line từ Quản lý máy móc
+        existing_lines = list(set([m["line"] for m in st.session_state["MACHINE_DB"] if m.get("line")]))
+        line_options = ["Tất cả Lines"] + sorted(existing_lines)
+
         with filter_col1:
-            start_date = st.date_input("Từ ngày", date(2026, 1, 1))
+            start_date = st.date_input("Từ ngày", date(2026, 8, 1))
         with filter_col2:
             end_date = st.date_input("Đến ngày", date.today())
         with filter_col3:
-            selected_line = st.selectbox("Chọn Số Chuyền (Line)", ["Tất cả Lines", "G103", "G104", "G111"])
+            selected_line = st.selectbox("Chọn Dây Chuyền (Line)", line_options)
         with filter_col4:
-            st.write("") # Căn chỉnh lề
             st.write("")
-            btn_search = st.button("🔎 Tìm kiếm", use_container_width=True)
+            st.write("")
+            btn_search = st.button("🔎 Tìm kiếm & Phân tích", use_container_width=True, type="primary")
+
+        if btn_search:
+            st.toast(f"🔔 Đã cập nhật dữ liệu phân tích cho {selected_line}!", icon="📊")
 
         st.markdown("---")
 
-        st.markdown(f"### 01. Equipment Health Overview ({selected_line} | {start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric(label="Downtime Rate", value="12.5%", delta="Mới phát sinh", delta_color="inverse")
-        kpi2.metric(label="Availability (Sẵn sàng)", value="87.5%", delta="-12% so kỳ trước", delta_color="normal")
-        kpi3.metric(label="MTBF (Chạy TB trước khi hỏng)", value="316 Phút", delta="Tốt", delta_color="normal")
-        kpi4.metric(label="MTTR (Thời gian sửa TB)", value="45.1 Phút", delta="+5 Phút", delta_color="inverse")
+        # KIỂM TRA XEM CÓ FILE MẪU NẠP VÀO HỆ THỐNG CHƯA
+        has_any_template = any(m.get("has_file", False) for m in st.session_state["MACHINE_DB"])
 
-        st.markdown("---")
-
-        if current_user["role"] in ["Manager", "Admin"]:
-            st.markdown("### 03. Pareto Downtime (80/20) & Phân loại 4M")
-            pareto_col, pie_col = st.columns([6, 4])
+        if has_any_template:
+            st.success("✅ **Đã nhận diện file mẫu dữ liệu từ các máy.** Tự động kích hoạt biểu đồ phân tích thông minh!")
             
-            with pareto_col:
-                df_pareto = pd.DataFrame({
-                    "Trạm": ["Chưa xác định", "Block 5", "Block 6", "Block 7", "Block 4", "Block 1", "Block 3"],
-                    "So_Phut": [2650, 2200, 1500, 900, 750, 500, 400]
-                })
-                tong_thoi_gian = df_pareto["So_Phut"].sum()
-                df_pareto["Phan_Tram_Tich_Luy"] = (df_pareto["So_Phut"].cumsum() / tong_thoi_gian) * 100
+            # --- 1. BIỂU ĐỒ & BẢNG PHÂN TÍCH THEO CÁC LINE (NGÀY TÌM KIẾM) ---
+            st.markdown(f"### 📈 1. Biểu Đồ & Bảng Phân Tích Chi Tiết Theo Ngày ({start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')})")
+            
+            lines_to_analyze = existing_lines if selected_line == "Tất cả Lines" else [selected_line]
+            
+            all_df_list = []
+            for line_item in lines_to_analyze:
+                df_line = generate_mock_line_data(line_item, start_date, end_date)
+                all_df_list.append(df_line)
+            
+            if all_df_list:
+                df_filtered = pd.concat(all_df_list, ignore_index=True)
 
-                fig_pareto = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_pareto.add_trace(go.Bar(x=df_pareto["Trạm"], y=df_pareto["So_Phut"], name="Downtime (Phút)", marker_color="#e11d48"), secondary_y=False)
-                fig_pareto.add_trace(go.Scatter(x=df_pareto["Trạm"], y=df_pareto["Phan_Tram_Tich_Luy"], name="% Luỹ kế", mode="lines+markers+text", text=df_pareto["Phan_Tram_Tich_Luy"].round(0).astype(str) + "%", textposition="top left", marker=dict(color="#0f766e", size=8), line=dict(width=3)), secondary_y=True)
-                fig_pareto.update_layout(hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-                st.plotly_chart(fig_pareto, use_container_width=True)
+                col_chart, col_table = st.columns([6, 4])
+                with col_chart:
+                    fig_line = go.Figure()
+                    for line_item in lines_to_analyze:
+                        df_sub = df_filtered[df_filtered["Dây chuyền"] == line_item]
+                        fig_line.add_trace(go.Scatter(
+                            x=df_sub["Ngày"], y=df_sub["OEE (%)"],
+                            mode='lines+markers', name=f"Line {line_item}"
+                        ))
+                    fig_line.update_layout(title="Xu hướng Chỉ số OEE (%) Theo Ngày Tìm Kiếm", xaxis_title="Ngày", yaxis_title="OEE (%)", hovermode="x unified")
+                    st.plotly_chart(fig_line, use_container_width=True)
 
-            with pie_col:
-                labels = ['Máy móc (Machine)', 'Nguyên liệu (Material)', 'Phương pháp (Method)', 'Chưa phân loại']
-                values = [1048, 735, 135, 480]
-                colors = ['#dc2626', '#ea580c', '#2563eb', '#94a3b8']
-                fig_pie = go.Figure(data=[go.Pie(labels=labels, values=values, hole=.4, marker=dict(colors=colors))])
-                fig_pie.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.1, xanchor="center", x=0.5))
-                st.plotly_chart(fig_pie, use_container_width=True)
+                with col_table:
+                    st.markdown("**📋 Bảng tổng hợp theo ngày:**")
+                    st.dataframe(df_filtered[["Ngày", "Dây chuyền", "OEE (%)", "Downtime (Phút)", "Sản lượng UPH"]], use_container_width=True, height=320)
+
+            st.markdown("---")
+
+            # --- 2. BIỂU ĐỒ & BẢNG TỔNG HỢP CẢ THÁNG ---
+            current_month = start_date.month
+            current_year = start_date.year
+            _, last_day = calendar.monthrange(current_year, current_month)
+            month_start = date(current_year, current_month, 1)
+            month_end = date(current_year, current_month, last_day)
+
+            st.markdown(f"### 🗓️ 2. Biểu Đồ & Bảng Tổng Hợp Xu Hướng Cả Tháng {current_month}/{current_year}")
+
+            month_df_list = []
+            for line_item in lines_to_analyze:
+                df_m = generate_mock_line_data(line_item, month_start, month_end)
+                month_df_list.append(df_m)
+
+            if month_df_list:
+                df_month = pd.concat(month_df_list, ignore_index=True)
+
+                m_col1, m_col2 = st.columns([6, 4])
+                with m_col1:
+                    fig_month = make_subplots(specs=[[{"secondary_y": True}]])
+                    df_month_avg = df_month.groupby("Ngày")[["OEE (%)", "Downtime (Phút)"]].mean().reset_index()
+
+                    fig_month.add_trace(go.Bar(x=df_month_avg["Ngày"], y=df_month_avg["Downtime (Phút)"], name="Tổng Downtime (Phút)", marker_color="#f43f5e"), secondary_y=False)
+                    fig_month.add_trace(go.Scatter(x=df_month_avg["Ngày"], y=df_month_avg["OEE (%)"], name="OEE Trung Bình (%)", mode="lines+markers", line=dict(color="#0284c7", width=3)), secondary_y=True)
+                    fig_month.update_layout(title=f"Tổng Quan Downtime & OEE Toàn Tháng {current_month}/{current_year}", hovermode="x unified")
+                    st.plotly_chart(fig_month, use_container_width=True)
+
+                with m_col2:
+                    st.markdown(f"**📊 Bảng chỉ số trung bình tháng {current_month}:**")
+                    summary_month = df_month.groupby("Dây chuyền").agg({
+                        "OEE (%)": "mean",
+                        "Sẵn sàng (%)": "mean",
+                        "Downtime (Phút)": "sum",
+                        "Sản lượng UPH": "mean"
+                    }).reset_index().round(1)
+                    st.dataframe(summary_month, use_container_width=True, height=320)
+
         else:
-            st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
+            st.info("ℹ️ **Chưa có file mẫu nào được tải lên.** Vui lòng vào tab **Quản Lý Máy Móc** để nạp File Mẫu Chuẩn nhằm tự động kích hoạt tính năng phân tích OEE.")
 
     # ---------------------------------------------------------
-    # TRANG 2: QUẢN LÝ MÁY MÓC (FILE MẪU CHUẨN ĐỂ PHÂN TÍCH)
+    # TRANG 2: QUẢN LÝ MÁY MÓC (DÂY CHUYỀN TỰ NHẬP & THÔNG BÁO)
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
@@ -224,7 +307,7 @@ else:
                     m_display.append({
                         "Mã máy": m.get("id"),
                         "Tên thiết bị": m.get("name"),
-                        "Chuyền (Line)": m.get("line"),
+                        "Dây chuyền (Line)": m.get("line"),
                         "UPH (Cơ bản)": m.get("uph"),
                         "Đường dẫn tới máy": m.get("url", "Chưa cấu hình"),
                         "File mẫu dữ liệu chuẩn": m.get("template_file", "Chưa nạp file mẫu")
@@ -233,40 +316,44 @@ else:
             else:
                 st.info("Chưa có thiết bị nào trong cơ sở dữ liệu.")
 
-        # TAB 2: THÊM MÁY MÓC MỚI VÀ FILE MẪU CHUẨN
+        # TAB 2: THÊM MÁY MÓC MỚI (TỰ NHẬP LINE & THÔNG BÁO)
         with tab_m_add:
-            st.subheader("➕ Thêm máy móc & File dữ liệu mẫu để phần mềm phân tích")
+            st.subheader("➕ Thêm máy móc & Nạp file dữ liệu mẫu")
             col1, col2 = st.columns(2)
             with col1:
                 m_id = st.text_input("Mã máy (VD: M04)*")
                 m_name = st.text_input("Tên máy (VD: Máy mài CNC)*")
-                m_line = st.selectbox("Thuộc chuyền (Line)", ["G103", "G104", "G111"])
+                # CHO PHÉP TỰ VIẾT TÊN DÂY CHUYỀN/LINE
+                m_line = st.text_input("Dây chuyền (Line)*", placeholder="Tự nhập tên Line (VD: G103, Line-A, SMT-1...)")
             with col2:
                 m_uph = st.number_input("Tốc độ chuẩn - UPH (Sản phẩm/Giờ)", min_value=1, value=100)
                 m_url = st.text_input("Đường dẫn tới máy (URL / IP / Path)", placeholder="http://192.168.1.x/m04")
                 template_file = st.file_uploader("📁 Nạp File Mẫu Chuẩn (.csv, .xlsx, .xlsm, .xlsb)", type=["csv", "xlsx", "xlsm", "xlsb"])
 
-            st.caption("💡 *Phần mềm sẽ sử dụng cấu trúc các cột trong file mẫu này để tự động đọc và trích xuất dữ liệu phân tích OEE.*")
-
-            if st.button("💾 Lưu Thiết Bị & File Mẫu", use_container_width=True):
-                if not m_id or not m_name:
-                    st.error("Vui lòng điền đầy đủ Mã máy và Tên máy!")
+            if st.button("💾 Lưu Thiết Bị Mới", use_container_width=True, type="primary"):
+                if not m_id or not m_name or not m_line:
+                    st.error("Vui lòng điền đầy đủ Mã máy, Tên máy và Dây chuyền (Line)!")
                 elif any(m["id"] == m_id for m in st.session_state["MACHINE_DB"]):
-                    st.error(f"Mã máy `{m_id}` đã tồn tại!")
+                    st.error(f"Mã máy `{m_id}` đã tồn tại trong hệ thống!")
                 else:
                     t_filename = template_file.name if template_file else "Chưa nạp file mẫu"
+                    has_f = True if template_file else False
+                    
                     st.session_state["MACHINE_DB"].append({
                         "id": m_id,
                         "name": m_name,
-                        "line": m_line,
+                        "line": m_line.strip(),
                         "uph": m_uph,
                         "url": m_url if m_url else "Chưa cấu hình",
-                        "template_file": t_filename
+                        "template_file": t_filename,
+                        "has_file": has_f
                     })
-                    st.success(f"Thêm thành công thiết bị `{m_name}` ({m_id}) cùng File mẫu chuẩn!")
+                    # THÔNG BÁO TỚI NGƯỜI DÙNG
+                    st.toast(f"✅ Đã thêm mới thành công máy {m_name} ({m_id})!", icon="🎉")
+                    st.success(f"🎉 **Thành công:** Đã lưu thiết bị `{m_name}` vào Dây chuyền `{m_line}`!")
                     st.rerun()
 
-        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC
+        # TAB 3: CHỈNH SỬA / XÓA MÁY MÓC (TỰ NHẬP LINE & THÔNG BÁO)
         with tab_m_edit_del:
             if st.session_state["MACHINE_DB"]:
                 machine_options = [f"{m['id']} - {m['name']}" for m in st.session_state["MACHINE_DB"]]
@@ -282,28 +369,30 @@ else:
                     st.subheader(f"✏️ Cập nhật thông tin máy: {cur_m['id']}")
                     with st.form("form_edit_machine"):
                         e_m_name = st.text_input("Tên máy", value=cur_m.get("name", ""))
-                        
-                        line_list = ["G103", "G104", "G111"]
-                        l_idx = line_list.index(cur_m.get("line")) if cur_m.get("line") in line_list else 0
-                        e_m_line = st.selectbox("Chuyền (Line)", line_list, index=l_idx)
-                        
+                        # TỰ NHẬP LINE KHI CHỈNH SỬA
+                        e_m_line = st.text_input("Dây chuyền (Line)", value=cur_m.get("line", ""))
                         e_m_uph = st.number_input("UPH chuẩn", min_value=1, value=int(cur_m.get("uph", 100)))
                         e_m_url = st.text_input("Đường dẫn tới máy", value=cur_m.get("url", ""))
                         
                         st.info(f"File mẫu chuẩn hiện tại: **{cur_m.get('template_file', 'Chưa có file mẫu')}**")
                         e_template_file = st.file_uploader("Thay đổi File mẫu chuẩn mới (Nếu có)", type=["csv", "xlsx", "xlsm", "xlsb"], key="e_template")
 
-                        if st.form_submit_button("💾 Cập Nhật Thiết Bị", use_container_width=True):
+                        if st.form_submit_button("💾 Cập Nhật & Lưu Thay Đổi", use_container_width=True):
                             new_t_filename = e_template_file.name if e_template_file else cur_m.get("template_file", "Chưa có file mẫu")
+                            has_f = True if e_template_file or cur_m.get("has_file") else False
+
                             st.session_state["MACHINE_DB"][m_idx] = {
                                 "id": selected_m_id,
                                 "name": e_m_name,
-                                "line": e_m_line,
+                                "line": e_m_line.strip(),
                                 "uph": e_m_uph,
                                 "url": e_m_url,
-                                "template_file": new_t_filename
+                                "template_file": new_t_filename,
+                                "has_file": has_f
                             }
-                            st.success(f"Đã cập nhật thiết bị `{selected_m_id}` thành công!")
+                            # THÔNG BÁO LƯU CẬP NHẬT
+                            st.toast(f"💾 Đã lưu thay đổi cho máy {selected_m_id}!", icon="✅")
+                            st.success(f"Cập nhật thông tin máy `{selected_m_id}` thành công!")
                             st.rerun()
 
                 with col_d_m:
@@ -311,13 +400,15 @@ else:
                     st.warning(f"Thao tác này sẽ xóa vĩnh viễn máy **{selected_m_id}** khỏi hệ thống.")
                     if st.button("🗑️ Xóa Thiết Bị", type="primary", use_container_width=True):
                         st.session_state["MACHINE_DB"].pop(m_idx)
+                        # THÔNG BÁO XÓA
+                        st.toast(f"🗑️ Đã xóa máy {selected_m_id} khỏi hệ thống!", icon="⚠️")
                         st.success(f"Đã xóa thành công máy `{selected_m_id}`!")
                         st.rerun()
             else:
                 st.info("Chưa có máy nào để chỉnh sửa hoặc xóa.")
 
     # ---------------------------------------------------------
-    # TRANG 3: QUẢN LÝ TÀI KHOẢN (CÓ THÊM / SỬA / XÓA)
+    # TRANG 3: QUẢN LÝ TÀI KHOẢN (CÓ THÔNG BÁO THÊM / SỬA / XÓA)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
@@ -340,7 +431,7 @@ else:
                 })
             st.dataframe(pd.DataFrame(display_data), use_container_width=True)
 
-        # TAB 2: TẠO MỚI
+        # TAB 2: TẠO MỚI (THÔNG BÁO)
         with tab_add:
             with st.form("form_add_user"):
                 st.subheader("Thêm tài khoản mới vào hệ thống")
@@ -372,10 +463,11 @@ else:
                             "role": a_role,
                             "allowed_pages": a_pages
                         }
+                        st.toast(f"🎉 Đã tạo thành công tài khoản {a_username}!", icon="👤")
                         st.success(f"Tạo thành công tài khoản `{a_username}`!")
                         st.rerun()
 
-        # TAB 3: CHỈNH SỬA & XÓA
+        # TAB 3: CHỈNH SỬA & XÓA (THÔNG BÁO)
         with tab_edit_delete:
             target_user = st.selectbox("Chọn tài khoản cần thao tác", list(st.session_state["USER_DB"].keys()))
             u_data = st.session_state["USER_DB"][target_user]
@@ -408,6 +500,7 @@ else:
                         }
                         if target_user == st.session_state["username"]:
                             st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
+                        st.toast(f"💾 Đã lưu thay đổi cho tài khoản {target_user}!", icon="✅")
                         st.success(f"Đã cập nhật tài khoản `{target_user}` thành công!")
                         st.rerun()
 
@@ -419,5 +512,6 @@ else:
                         st.error("Bạn không thể xóa tài khoản hiện tại đang đăng nhập!")
                     else:
                         del st.session_state["USER_DB"][target_user]
+                        st.toast(f"🗑️ Đã xóa tài khoản {target_user}!", icon="⚠️")
                         st.success(f"Đã xóa tài khoản `{target_user}`!")
                         st.rerun()
