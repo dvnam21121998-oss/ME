@@ -8,14 +8,42 @@ from plotly.subplots import make_subplots
 # ==========================================
 st.set_page_config(page_title="Dashboard OEE Toàn Diện", layout="wide", initial_sidebar_state="expanded")
 
+# Danh sách tất cả tính năng trong hệ thống
+ALL_FEATURES = [
+    "📊 Dashboard OEE",
+    "🏭 Quản Lý Máy Móc",
+    "👤 Quản Lý Tài Khoản"
+]
+
 # ==========================================
-# KHỞI TẠO CƠ SỞ DỮ LIỆU
+# KHỞI TẠO CƠ SỞ DỮ LIỆU (Session State)
 # ==========================================
 if "USER_DB" not in st.session_state:
     st.session_state["USER_DB"] = {
-        "admin": {"password": "123", "role": "Admin", "name": "Giám Đốc Nhà Máy"},
-        "manager": {"password": "123", "role": "Manager", "name": "Kỹ Sư IE"},
-        "operator": {"password": "123", "role": "Operator", "name": "Tổ Trưởng Line G103"}
+        "admin": {
+            "password": "123",
+            "name": "Giám Đốc Nhà Máy",
+            "department": "Ban Giám Đốc",
+            "position": "Giám Đốc",
+            "role": "Admin",
+            "allowed_pages": ALL_FEATURES
+        },
+        "manager": {
+            "password": "123",
+            "name": "Kỹ Sư IE",
+            "department": "Kỹ Thuật (IE)",
+            "position": "Trưởng Nhóm IE",
+            "role": "Manager",
+            "allowed_pages": ["📊 Dashboard OEE"]
+        },
+        "operator": {
+            "password": "123",
+            "name": "Tổ Trưởng Line G103",
+            "department": "Sản Xuất",
+            "position": "Tổ Trưởng",
+            "role": "Operator",
+            "allowed_pages": ["📊 Dashboard OEE"]
+        }
     }
 
 if "MACHINE_DB" not in st.session_state:
@@ -41,8 +69,7 @@ def login():
                 if username in st.session_state["USER_DB"] and st.session_state["USER_DB"][username]["password"] == password:
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = username
-                    st.session_state["name"] = st.session_state["USER_DB"][username]["name"]
-                    st.session_state["role"] = st.session_state["USER_DB"][username]["role"]
+                    st.session_state["user_info"] = st.session_state["USER_DB"][username]
                     st.rerun()
                 else:
                     st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
@@ -50,8 +77,7 @@ def login():
 def logout():
     st.session_state["logged_in"] = False
     st.session_state.pop("username", None)
-    st.session_state.pop("name", None)
-    st.session_state.pop("role", None)
+    st.session_state.pop("user_info", None)
     st.rerun()
 
 # ==========================================
@@ -60,24 +86,18 @@ def logout():
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     login()
 else:
+    current_user = st.session_state["user_info"]
+    
     # --- SIDEBAR MENU ---
     with st.sidebar:
         st.image("https://cdn-icons-png.flaticon.com/512/2046/2046024.png", width=100)
-        st.success(f"👋 Xin chào, **{st.session_state['name']}**!")
-        st.info(f"Vai trò: **{st.session_state['role']}**")
+        st.success(f"👋 **{current_user['name']}**")
+        st.info(f"📍 Bộ phận: **{current_user.get('department', 'N/A')}**\n\n💼 Chức vụ: **{current_user.get('position', 'N/A')}**")
         st.markdown("---")
         
-        # Tạo danh sách menu điều hướng
-        menu_options = ["📊 Dashboard OEE"]
-        
-        # Chỉ hiển thị các mục quản trị nếu người dùng là Admin
-        if st.session_state["role"] == "Admin":
-            menu_options.extend([
-                "👤 Quản Lý Tài Khoản",
-                "🏭 Quản Lý Máy Móc"
-            ])
-            
-        selected_menu = st.radio("📌 ĐIỀU HƯỚNG HỆ THỐNG", menu_options)
+        # Danh sách menu dựa trên các mục được quyền truy cập của user
+        user_pages = current_user.get("allowed_pages", ["📊 Dashboard OEE"])
+        selected_menu = st.radio("📌 ĐIỀU HƯỚNG HỆ THỐNG", user_pages)
         
         st.markdown("---")
         st.button("Đăng xuất", on_click=logout, use_container_width=True)
@@ -98,7 +118,7 @@ else:
 
         st.markdown("---")
 
-        if st.session_state["role"] in ["Manager", "Admin"]:
+        if current_user["role"] in ["Manager", "Admin"]:
             st.markdown("### 03. Pareto Downtime (80/20) & Phân loại 4M")
             pareto_col, pie_col = st.columns([6, 4])
             
@@ -127,43 +147,115 @@ else:
             st.info("🔒 **Hạn chế truy cập:** Bạn đang đăng nhập với quyền Tổ Trưởng. Chỉ xem được thông số tổng quan.")
 
     # ---------------------------------------------------------
-    # TRANG 2: QUẢN LÝ TÀI KHOẢN (Chỉ dành cho Admin)
+    # TRANG 2: QUẢN LÝ TÀI KHOẢN (CÓ THÊM / SỬA / XÓA)
     # ---------------------------------------------------------
     elif selected_menu == "👤 Quản Lý Tài Khoản":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ TÀI KHOẢN")
         st.markdown("---")
-        col_list, col_add = st.columns([6, 4])
-        with col_list:
-            st.subheader("📋 Danh sách tài khoản")
-            user_list = []
-            for uname, info in st.session_state["USER_DB"].items():
-                user_list.append({"Tên đăng nhập": uname, "Họ và Tên": info["name"], "Phân quyền": info["role"]})
-            st.dataframe(pd.DataFrame(user_list), use_container_width=True)
 
-        with col_add:
-            st.subheader("➕ Cấp tài khoản mới")
-            with st.form("add_user_form"):
-                new_user = st.text_input("Tên đăng nhập (viết liền không dấu)*")
-                new_pass = st.text_input("Mật khẩu*", type="password")
-                new_name = st.text_input("Họ và Tên người dùng")
-                new_role = st.selectbox("Cấp quyền truy cập", ["Operator", "Manager", "Admin"])
-                submitted_user = st.form_submit_button("Tạo tài khoản", use_container_width=True)
-                if submitted_user:
-                    if new_user == "" or new_pass == "":
-                        st.error("Vui lòng điền đủ Tên đăng nhập và Mật khẩu!")
-                    elif new_user in st.session_state["USER_DB"]:
-                        st.error("Tên đăng nhập này đã tồn tại!")
+        # --- TẠO 3 TABS: DANH SÁCH / THÊM MỚI / CHỈNH SỬA & XÓA ---
+        tab_list, tab_add, tab_edit_delete = st.tabs(["📋 Danh Sách Tài Khoản", "➕ Tạo Mới Tài Khoản", "✏️ Chỉnh Sửa / Xóa"])
+
+        # TAB 1: DANH SÁCH
+        with tab_list:
+            display_data = []
+            for uname, uinfo in st.session_state["USER_DB"].items():
+                display_data.append({
+                    "Tài khoản": uname,
+                    "Mật khẩu": "••••••",
+                    "Họ và Tên": uinfo.get("name", ""),
+                    "Bộ phận": uinfo.get("department", ""),
+                    "Chức vụ": uinfo.get("position", ""),
+                    "Phân quyền": uinfo.get("role", ""),
+                    "Mục được truy cập": ", ".join(uinfo.get("allowed_pages", []))
+                })
+            st.dataframe(pd.DataFrame(display_data), use_container_width=True)
+
+        # TAB 2: TẠO MỚI
+        with tab_add:
+            with st.form("form_add_user"):
+                st.subheader("Thêm tài khoản mới vào hệ thống")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    a_username = st.text_input("Tên tài khoản (viết liền không dấu)*")
+                    a_password = st.text_input("Mật khẩu*", type="password")
+                    a_fullname = st.text_input("Họ và Tên")
+                with col_b:
+                    a_dept = st.text_input("Bộ phận", value="Sản Xuất")
+                    a_pos = st.text_input("Chức vụ", value="Nhân Viên")
+                    a_role = st.selectbox("Cấp độ hệ thống", ["Operator", "Manager", "Admin"])
+
+                st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
+                a_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=["📊 Dashboard OEE"])
+
+                btn_add = st.form_submit_button("➕ Tạo Tài Khoản Mới", use_container_width=True)
+                if btn_add:
+                    if not a_username or not a_password:
+                        st.error("Vui lòng điền Tên tài khoản và Mật khẩu!")
+                    elif a_username in st.session_state["USER_DB"]:
+                        st.error("Tài khoản này đã tồn tại trên hệ thống!")
                     else:
-                        st.session_state["USER_DB"][new_user] = {
-                            "password": new_pass,
-                            "role": new_role,
-                            "name": new_name
+                        st.session_state["USER_DB"][a_username] = {
+                            "password": a_password,
+                            "name": a_fullname,
+                            "department": a_dept,
+                            "position": a_pos,
+                            "role": a_role,
+                            "allowed_pages": a_pages
                         }
-                        st.success(f"Đã tạo thành công tài khoản: {new_user}")
+                        st.success(f"Tạo thành công tài khoản `{a_username}`!")
+                        st.rerun()
+
+        # TAB 3: CHỈNH SỬA & XÓA
+        with tab_edit_delete:
+            target_user = st.selectbox("Chọn tài khoản cần thao tác", list(st.session_state["USER_DB"].keys()))
+            u_data = st.session_state["USER_DB"][target_user]
+
+            col_edit, col_del = st.columns([7, 3])
+
+            with col_edit:
+                st.subheader(f"✏️ Cập nhật thông tin: {target_user}")
+                with st.form("form_edit_user"):
+                    e_password = st.text_input("Mật khẩu mới", value=u_data.get("password", ""))
+                    e_fullname = st.text_input("Họ và Tên", value=u_data.get("name", ""))
+                    e_dept = st.text_input("Bộ phận", value=u_data.get("department", ""))
+                    e_pos = st.text_input("Chức vụ", value=u_data.get("position", ""))
+                    
+                    role_idx = ["Operator", "Manager", "Admin"].index(u_data.get("role", "Operator")) if u_data.get("role") in ["Operator", "Manager", "Admin"] else 0
+                    e_role = st.selectbox("Cấp độ hệ thống", ["Operator", "Manager", "Admin"], index=role_idx)
+
+                    st.markdown("**Quyền được truy cập những mục nào trong phần mềm:**")
+                    e_pages = st.multiselect("Chọn các mục được phép dùng", ALL_FEATURES, default=u_data.get("allowed_pages", []))
+
+                    btn_update = st.form_submit_button("💾 Lưu Thay Đổi", use_container_width=True)
+                    if btn_update:
+                        st.session_state["USER_DB"][target_user] = {
+                            "password": e_password,
+                            "name": e_fullname,
+                            "department": e_dept,
+                            "position": e_pos,
+                            "role": e_role,
+                            "allowed_pages": e_pages
+                        }
+                        # Nếu chỉnh sửa chính tài khoản đang đăng nhập, cập nhật lại session
+                        if target_user == st.session_state["username"]:
+                            st.session_state["user_info"] = st.session_state["USER_DB"][target_user]
+                        st.success(f"Đã cập nhật tài khoản `{target_user}` thành công!")
+                        st.rerun()
+
+            with col_del:
+                st.subheader("❌ Xóa tài khoản")
+                st.warning(f"Thao tác này không thể hoàn tác với tài khoản **{target_user}**.")
+                if st.button("🗑️ Xóa Tài Khoản", type="primary", use_container_width=True):
+                    if target_user == st.session_state["username"]:
+                        st.error("Bạn không thể xóa tài khoản hiện tại đang đăng nhập!")
+                    else:
+                        del st.session_state["USER_DB"][target_user]
+                        st.success(f"Đã xóa tài khoản `{target_user}`!")
                         st.rerun()
 
     # ---------------------------------------------------------
-    # TRANG 3: QUẢN LÝ MÁY MÓC (Chỉ dành cho Admin)
+    # TRANG 3: QUẢN LÝ MÁY MÓC
     # ---------------------------------------------------------
     elif selected_menu == "🏭 Quản Lý Máy Móc":
         st.markdown("## ⚙️ QUẢN TRỊ HỆ THỐNG - QUẢN LÝ THIẾT BỊ & MÁY MÓC")
