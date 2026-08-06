@@ -25,7 +25,7 @@ ALL_MACHINE_EDIT_FIELDS = [
     "File mẫu dữ liệu"
 ]
 
-# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ
+# CSS NỔI BẬT NÚT TRỞ VỀ TRANG CHỦ & TỐI ƯU GIAO DIỆN
 st.markdown("""
     <style>
     div[key="btn_home_nav"] > button {
@@ -44,6 +44,36 @@ st.markdown("""
         background: linear-gradient(135deg, #0369a1 0%, #075985 100%) !important;
         box-shadow: 0 6px 16px rgba(2, 132, 199, 0.5) !important;
         transform: translateY(-2px);
+    }
+    
+    /* CSS RIÊNG CHO MÀN HÌNH ĐĂNG NHẬP */
+    .login-header-card {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        border: 1px solid #334155;
+        border-radius: 16px;
+        padding: 30px;
+        text-align: center;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        margin-bottom: 25px;
+    }
+    .login-title {
+        color: #38bdf8;
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
+    }
+    .login-subtitle {
+        color: #94a3b8;
+        font-size: 1rem;
+        margin-bottom: 0;
+    }
+    .quick-login-card {
+        background-color: #0f172a;
+        border: 1px dashed #334155;
+        border-radius: 12px;
+        padding: 15px;
+        margin-top: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -180,28 +210,81 @@ if "MACHINE_DB" not in st.session_state:
 if "selected_menu" not in st.session_state:
     st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
 
+# Khởi tạo giá trị đăng nhập tạm thời
+if "input_user" not in st.session_state:
+    st.session_state["input_user"] = ""
+if "input_pass" not in st.session_state:
+    st.session_state["input_pass"] = ""
+
 # ==========================================
 # CÁC HÀM ĐĂNG NHẬP / ĐĂNG XUẤT / CHUYỂN TRANG
 # ==========================================
+def set_quick_login(user, pwd):
+    st.session_state["input_user"] = user
+    st.session_state["input_pass"] = pwd
+
 def login():
-    st.markdown("<h2 style='text-align: center; color: #1e293b;'>🔐 ĐĂNG NHẬP HỆ THỐNG OEE</h2>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        with st.form("login_form"):
-            username = st.text_input("Tên đăng nhập")
-            password = st.text_input("Mật khẩu", type="password")
-            submit_button = st.form_submit_button("Đăng nhập", use_container_width=True)
-            if submit_button:
-                if username in st.session_state["USER_DB"] and st.session_state["USER_DB"][username]["password"] == password:
-                    st.session_state["logged_in"] = True
-                    st.session_state["username"] = username
-                    st.session_state["user_info"] = st.session_state["USER_DB"][username]
-                    st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
-                    st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
-                    st.toast("🔔 Đăng nhập thành công!", icon="✅")
+    # CĂN GIỮA VÀ TẠO KHUNG ĐĂNG NHẬP SANG TRỌNG
+    _, col_center, _ = st.columns([1, 2.2, 1])
+    
+    with col_center:
+        st.markdown("""
+            <div class="login-header-card">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🏭</div>
+                <div class="login-title">OEE MANAGEMENT SYSTEM</div>
+                <div class="login-subtitle">Hệ Thống Giám Sát & Quản Lý Hiệu Suất Thiết Bị Smart Factory</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        with st.container(border=True):
+            st.markdown("### 🔐 Đăng Nhập Hệ Thống")
+            st.caption("Vui lòng nhập tài khoản và mật khẩu của bạn để truy cập.")
+            
+            with st.form("login_form"):
+                username = st.text_input("👤 Tên đăng nhập", value=st.session_state["input_user"], placeholder="Nhập tên đăng nhập (VD: admin)")
+                password = st.text_input("🔑 Mật khẩu", value=st.session_state["input_pass"], type="password", placeholder="Nhập mật khẩu")
+                
+                col_btn1, col_btn2 = st.columns([1, 1])
+                with col_btn1:
+                    submit_button = st.form_submit_button("🚀 Đăng nhập", use_container_width=True, type="primary")
+                with col_btn2:
+                    clear_button = st.form_submit_button("🔄 Xóa nhập", use_container_width=True)
+                
+                if submit_button:
+                    if username in st.session_state["USER_DB"] and st.session_state["USER_DB"][username]["password"] == password:
+                        st.session_state["logged_in"] = True
+                        st.session_state["username"] = username
+                        st.session_state["user_info"] = st.session_state["USER_DB"][username]
+                        st.session_state["selected_menu"] = "🎛️ Dashboard OEE"
+                        st.session_state["menu_radio"] = "🎛️ Dashboard OEE"
+                        st.toast("🔔 Đăng nhập thành công!", icon="✅")
+                        st.rerun()
+                    else:
+                        st.error("❌ Mật khẩu hoặc tên đăng nhập không chính xác!")
+                
+                if clear_button:
+                    st.session_state["input_user"] = ""
+                    st.session_state["input_pass"] = ""
                     st.rerun()
-                else:
-                    st.error("Tên đăng nhập hoặc mật khẩu không chính xác!")
+
+        # KHU VỰC THỬ NGHIỆM ĐĂNG NHẬP NHANH (DEMO ACCOUNTS)
+        st.markdown("""
+            <div class="quick-login-card">
+                <div style="font-weight: 700; color: #38bdf8; margin-bottom: 8px;">⚡ Đăng nhập nhanh (Tài khoản mẫu):</div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col_q1, col_q2 = st.columns(2)
+        with col_q1:
+            if st.button("👑 Giám Đốc (Admin)", use_container_width=True):
+                set_quick_login("admin", "123")
+                st.rerun()
+        with col_q2:
+            if st.button("👷 Kỹ Sư IE (Manager)", use_container_width=True):
+                set_quick_login("manager", "123")
+                st.rerun()
+
+        st.markdown("<p style='text-align: center; color: #64748b; font-size: 0.85rem; margin-top: 30px;'>© 2026 Smart Factory Management System | Version 2.4.0</p>", unsafe_allow_html=True)
 
 def logout():
     st.session_state["logged_in"] = False
